@@ -61,7 +61,7 @@ Desarrollar una aplicación web de estrategia donde los usuarios puedan formar e
 
 ---
 
-## 6. Alcance del Proyecto (Scope)
+## 6. Alcance del Proyecto
 
 ### Autenticación y Usuarios
 * Crear cuenta de usuario.
@@ -73,7 +73,6 @@ Desarrollar una aplicación web de estrategia donde los usuarios puedan formar e
 ### Selección de Modo de Juego
 * Pantalla de selección entre *Próceres Argentinos* y *Profes del Pío IX*.
 * Carga de personajes específicos según el modo seleccionado.
-* Conservación de las mecánicas principales en ambos modos.
 
 ### Selección y Gestión de Personajes
 * Catálogo de personajes disponibles por modo.
@@ -108,9 +107,9 @@ Desarrollar una aplicación web de estrategia donde los usuarios puedan formar e
   * Emisión del resultado final simultáneo.
 
 ### Sistema de Puntaje, Ranking e Historial
-* Asignación de puntos por victorias y desempeño.
+* Asignación de puntos por victorias.
 * Acumulación de puntaje general por usuario.
-* **Ranking público:** Tabla de posiciones ordenada por puntos, victorias y partidas jugadas.
+* **Ranking público:** Tabla de posiciones ordenada por victorias y partidas jugadas.
 * **Historial personal:** Consulta de partidas pasadas (ganadas, perdidas, totales) y estadísticas generales en el perfil.
 
 ### Panel de Administración
@@ -130,5 +129,5 @@ Desarrollar una aplicación web de estrategia donde los usuarios puedan formar e
 * **Comunicación:**
   * **HTTP / Fetch API:** Para operaciones CRUD, autenticación y gestión de datos.
   * **WebSockets:** Para la sincronización en tiempo real del modo multijugador.
-* **Seguridad:** Control de acceso mediante roles (Middleware de autorización para administradores).
+* **Seguridad y control de acceso:** determinadas funciones estarán disponibles únicamente para usuarios administradores.
 * **Entrega:** Aplicación funcional e integrada, con documentaciones, base de datos poblada y usuario administrador activo.
