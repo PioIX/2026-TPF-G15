@@ -61,7 +61,7 @@ Desarrollar una aplicación web de estrategia donde los usuarios puedan formar e
 
 ---
 
-## 6. Alcance del Proyecto (Scope)
+## 6. Alcance del Proyecto
 
 ### Autenticación y Usuarios
 * Crear cuenta de usuario.
@@ -73,11 +73,61 @@ Desarrollar una aplicación web de estrategia donde los usuarios puedan formar e
 ### Selección de Modo de Juego
 * Pantalla de selección entre *Próceres Argentinos* y *Profes del Pío IX*.
 * Carga de personajes específicos según el modo seleccionado.
-* Conservación de las mecánicas principales en ambos modos.
 
 ### Selección y Gestión de Personajes
 * Catálogo de personajes disponibles por modo.
 * Muestra de fichas técnicas: información básica y estadísticas.
 * Selección de personajes para el armado de alineaciones.
 
-### Creación
+### Creación y Configuración del Equipo
+* Asignación de personajes a posiciones específicas dentro del campo.
+* Selección de formación táctica y estilo de estrategia.
+* Resumen de características generales del equipo antes del partido.
+* Confirmación de alineación.
+
+### Juego Individual (vs. IA)
+* Inicio de partida individual contra el sistema.
+* Simulación del enfrentamiento según estadísticas, formación y estrategia.
+* Visualización del estado del partido y resultado final.
+* Registro del resultado en el historial del usuario.
+
+### Sistema de Partidos y Estrategia
+* Pantalla de enfrentamiento con detalles de ambos equipos (personajes, formación, estrategia).
+* Marcador en vivo y estadísticas del partido.
+* Determinación automática del ganador.
+* Persistencia del resultado.
+
+### Modo Multijugador e Interacción en Tiempo Real
+* Creación y unión a salas de partidas multijugador.
+* Enfrentamiento entre dos usuarios con alineaciones personalizadas.
+* Sincronización mediante **WebSockets**:
+  * Notificación de ingreso de jugadores.
+  * Inicio de partida coordinado.
+  * Actualización en tiempo real del marcador y eventos clave sin recargar la página.
+  * Emisión del resultado final simultáneo.
+
+### Sistema de Puntaje, Ranking e Historial
+* Asignación de puntos por victorias.
+* Acumulación de puntaje general por usuario.
+* **Ranking público:** Tabla de posiciones ordenada por victorias y partidas jugadas.
+* **Historial personal:** Consulta de partidas pasadas (ganadas, perdidas, totales) y estadísticas generales en el perfil.
+
+### Panel de Administración
+* Gestión de usuarios registrados.
+* CRUD completo de personajes (Agregar, Consultar, Modificar, Eliminar).
+* Edición de estadísticas y atributos de los personajes.
+* Mantenimiento general de la base de datos del juego.
+
+---
+
+## 7. Características Técnicas del Producto Final
+
+* **Arquitectura Full Stack:**
+  * **Frontend:** Desarrollado en React / Next.js con interfaz clara, responsiva e identidad visual coherente.
+  * **Backend:** Desarrollado en Node.js.
+  * **Base de Datos:** Persistencia de usuarios, personajes, partidas, puntajes y rankings.
+* **Comunicación:**
+  * **HTTP / Fetch API:** Para operaciones CRUD, autenticación y gestión de datos.
+  * **WebSockets:** Para la sincronización en tiempo real del modo multijugador.
+* **Seguridad y control de acceso:** determinadas funciones estarán disponibles únicamente para usuarios administradores.
+* **Entrega:** Aplicación funcional e integrada, con documentaciones, base de datos poblada y usuario administrador activo.
