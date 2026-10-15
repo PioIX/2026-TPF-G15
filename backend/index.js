@@ -94,7 +94,6 @@ app.post("/register", async (req, res) => {
         username,
         mail,
         contrasena,
-        foto
     } = req.body;
 
     try {
@@ -130,13 +129,12 @@ app.post("/register", async (req, res) => {
         // Crear usuario
         const resultado = await realizarQuery(
             `INSERT INTO Usuarios
-            (username, mail, contrasena, foto)
-            VALUES (?, ?, ?, ?)`,
+            (username, mail, contrasena)
+            VALUES (?, ?, ?)`,
             [
                 username,
                 mail,
-                contrasena,
-                foto || null
+                contrasena
             ]
         );
 
@@ -158,7 +156,7 @@ app.post("/register", async (req, res) => {
 
 /* =========================================================
    LISTAR CHATS DE UN USUARIO
-   ========================================================= */
+   ========================================================= 
 app.get("/chats/:id_usuario", async (req, res) => {
 
     const { id_usuario } = req.params;
@@ -171,7 +169,6 @@ app.get("/chats/:id_usuario", async (req, res) => {
                 c.id_chat,
                 c.tipo_chat,
                 c.fecha_creado,
-                c.foto,
                 c.nombre_grupo,
 
                 (
@@ -243,13 +240,13 @@ app.get("/chats/:id_usuario", async (req, res) => {
         });
     }
 });
-
+*/
 
 
 
 /* =========================================================
    CREAR CHAT INDIVIDUAL
-   ========================================================= */
+   ========================================================= 
 
 app.post("/chats", async (req, res) => {
 
@@ -342,11 +339,11 @@ app.post("/chats", async (req, res) => {
         });
     }
 });
-
+*/
 
 /* =========================================================
    CREAR CHAT GRUPAL
-   ========================================================= */
+   ========================================================= 
 
 app.post("/grupos", async (req, res) => {
 
@@ -443,11 +440,11 @@ app.post("/grupos", async (req, res) => {
         });
     }
 });
-
+*/
 
 /* =========================================================
    HISTORIAL DE MENSAJES
-   ========================================================= */
+   ========================================================= 
 
 app.get("/mensajes/:id_chat", async (req, res) => {
 
@@ -486,11 +483,11 @@ app.get("/mensajes/:id_chat", async (req, res) => {
         })
     }
 })
-
+*/
 
 /* =========================================================
    SOCKET.IO
-   ========================================================= */
+   ========================================================= 
 
 io.on("connection", (socket) => {
 
@@ -598,3 +595,4 @@ io.on("connection", (socket) => {
     });
 
 });
+*/

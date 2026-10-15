@@ -24,9 +24,21 @@ export default function Form({title, register, buttonText, onButtonRegister}){
                 "Content-Type": "application/json"
             }, 
             body: JSON.stringify({
-                email
+                email: email, 
+                contrasena: contrasena
             })
         })
+
+        const data = await response.json()
+
+        if (response.ok){
+            localStorage.setItem("usuario", JSON.stringify(data.usuario))
+
+            window.location.href = "" // nombre de la pagina a la que conducira en caso de estar bien la respuesta 
+        }
+        else {
+            console.log(data.mensaje)
+        }
 
     }
 
