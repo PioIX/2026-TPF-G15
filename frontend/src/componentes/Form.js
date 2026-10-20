@@ -22,6 +22,7 @@ export default function Form({
         }
     };
 
+
     const handleLogin = async () => {
         try {
             const response = await fetch("http://localhost:4000/login", {
@@ -38,6 +39,8 @@ export default function Form({
             const data = await response.json();
 
             if (response.ok) {
+                alert("¡Inicio de sesión correcto!");
+
                 localStorage.setItem(
                     "usuario",
                     JSON.stringify(data.usuario)
@@ -45,12 +48,15 @@ export default function Form({
 
                 window.location.href = "/";
             } else {
-                console.log(data.mensaje);
+                alert(data.mensaje);
             }
+
         } catch (error) {
             console.log("Error al iniciar sesión:", error);
+            alert("No se pudo conectar con el servidor. Revisá que el backend esté funcionando.");
         }
     };
+
 
     return (
         <div className={styles.formulario}>
