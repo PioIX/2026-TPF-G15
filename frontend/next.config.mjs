@@ -4,6 +4,7 @@ const nextConfig = {
   cacheComponents: true,
   partialPrefetching: true,
   reactCompiler: true,
+  distDir: process.env.NEXT_DIST_DIR || ".next",
 };
 
 export default nextConfig;
