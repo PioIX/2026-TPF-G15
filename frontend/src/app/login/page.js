@@ -8,21 +8,38 @@ export default function LoginPage() {
     
     const [register, setRegister] = useState(false)
 
-    const handleRegister = async (usuario, email, contrasena) => {
-        const response = await fetch("http://localhost:4000/register", { //hay que actualizar el back
+    
+
+const handleRegister = async (usuario, email, contrasena) => {
+    try {
+        const response = await fetch("http://localhost:4000/register", {
             method: "POST",
             headers: {
                 "Content-Type": "application/json"
             },
             body: JSON.stringify({
-                username: username,
-                mail: mail,
-                contrasena: contrasena,
+                nombre_usuario: usuario,
+                email: email,
+                contrasena: contrasena
             })
-        })
-        const data = await response.json()
-        console.log(data)
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+            alert(data.mensaje);
+            setRegister(false);
+        } else {
+            alert(data.mensaje);
+        }
+
+    } catch (error) {
+        console.log("Error al registrar usuario:", error);
+        alert("No se pudo conectar con el servidor. Revisá que el backend esté funcionando.");
+    }
 };
+
+
 
 
 return (
