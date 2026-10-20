@@ -3,7 +3,7 @@ const cors = require("cors");
 const session = require("express-session");
 const { Server } = require("socket.io");
 
-require("dotenv").config({ path: ".pio.env" });
+require("dotenv").config({ path: ".home.env" });
 
 const app = express();
 const PORT = process.env.PORT || 4000;

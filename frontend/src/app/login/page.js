@@ -24,12 +24,13 @@ export default function LoginPage() {
         console.log(data)
 };
 
+
 return (
-    <div>
+    <div className={styles.contenedor}>
         {!register ? (
             <>
                 <Form
-                    title="Iniciar sesión"
+                    title="Argentina FC"
                     buttonText="Iniciar sesión"
                     register={false}
                 />
@@ -38,15 +39,15 @@ return (
                     className={styles.cambiar}
                     onClick={() => setRegister(true)}
                 >
-                    Quiero registrarme
+                    ¿No tenés cuenta? Registrate
                 </button>
             </>
         ) : (
             <>
                 <Form
-                    title="Registrarse"
+                    title="Crear cuenta"
                     buttonText="Registrarse"
-                    onButtonClick={handleRegister}
+                    onButtonRegister={handleRegister}
                     register={true}
                 />
 
@@ -54,10 +55,10 @@ return (
                     className={styles.cambiar}
                     onClick={() => setRegister(false)}
                 >
-                    Quiero iniciar sesión
+                    ¿Ya tenés cuenta? Iniciá sesión
                 </button>
             </>
         )}
     </div>
-)
+);
 }
