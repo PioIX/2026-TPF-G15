@@ -2,10 +2,11 @@
 import Form from "@/componentes/Form";
 import { useState } from "react";
 import styles from "./login.module.css";
+import { useRouter } from "next/router";
 
 
 export default function LoginPage() {
-    
+    const router = useRouter();
     const [register, setRegister] = useState(false)
 
     
