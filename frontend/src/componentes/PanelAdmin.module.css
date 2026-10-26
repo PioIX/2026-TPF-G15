@@ -1,0 +1,206 @@
+
+.admin-fondo {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    background: rgba(0, 0, 0, 0.75);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 20px;
+}
+
+.admin-ventana {
+    position: relative;
+    background: #ffffff;
+    color: #222222;
+    width: 100%;
+    max-width: 1150px;
+    max-height: 90vh;
+    overflow-y: auto;
+    padding: 30px;
+    border-radius: 14px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+}
+
+.admin-ventana h2 {
+    margin-top: 0;
+    margin-bottom: 8px;
+}
+
+.admin-ventana h3 {
+    margin-top: 24px;
+    margin-bottom: 14px;
+}
+
+.admin-cerrar {
+    position: absolute;
+    top: 12px;
+    right: 18px;
+    border: none;
+    background: transparent;
+    font-size: 32px;
+    cursor: pointer;
+    color: #333333;
+}
+
+.admin-switch {
+    display: flex;
+    gap: 8px;
+    margin: 24px 0;
+    border-bottom: 2px solid #dddddd;
+}
+
+.admin-switch button {
+    border: none;
+    background: #eeeeee;
+    color: #333333;
+    padding: 12px 24px;
+    cursor: pointer;
+    border-radius: 8px 8px 0 0;
+    font-weight: bold;
+}
+
+.admin-switch button.activo {
+    background: #174c2b;
+    color: white;
+}
+
+.admin-formulario {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    padding: 20px;
+    background: #f6f6f6;
+    border-radius: 10px;
+}
+
+.admin-formulario h3 {
+    margin: 0 0 6px;
+}
+
+.admin-formulario label,
+.admin-estadisticas label {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    font-weight: 600;
+}
+
+.admin-formulario input,
+.admin-formulario select,
+.admin-formulario textarea {
+    box-sizing: border-box;
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #cccccc;
+    border-radius: 6px;
+    font: inherit;
+    background: white;
+}
+
+.admin-formulario textarea {
+    min-height: 75px;
+    resize: vertical;
+}
+
+.admin-estadisticas {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.admin-formulario button,
+.admin-acciones button,
+.admin-editar-permisos button {
+    padding: 9px 13px;
+    border: none;
+    border-radius: 6px;
+    background: #174c2b;
+    color: white;
+    cursor: pointer;
+    font-weight: bold;
+}
+
+.admin-botones-form {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.admin-formulario button.secundario,
+.admin-editar-permisos button.secundario {
+    background: #777777;
+}
+
+.admin-tabla-contenedor {
+    width: 100%;
+    overflow-x: auto;
+}
+
+.admin-tabla {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 12px;
+    font-size: 14px;
+}
+
+.admin-tabla th,
+.admin-tabla td {
+    border-bottom: 1px solid #dddddd;
+    padding: 12px 10px;
+    text-align: left;
+    white-space: nowrap;
+}
+
+.admin-tabla th {
+    background: #eeeeee;
+}
+
+.admin-acciones {
+    display: flex;
+    gap: 8px;
+}
+
+.admin-acciones button.eliminar {
+    background: #b3261e;
+}
+
+.admin-mensaje {
+    padding: 12px;
+    background: #eeeeee;
+    border-radius: 6px;
+    overflow-wrap: anywhere;
+}
+
+.admin-editar-permisos {
+    margin-top: 20px;
+    padding: 18px;
+    background: #f6f6f6;
+    border-radius: 10px;
+}
+
+.admin-editar-permisos button {
+    margin-right: 8px;
+    margin-bottom: 8px;
+}
+
+@media (max-width: 650px) {
+    .admin-fondo {
+        padding: 8px;
+    }
+
+    .admin-ventana {
+        padding: 22px 14px;
+        max-height: 95vh;
+    }
+
+    .admin-estadisticas {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .admin-switch button {
+        flex: 1;
+        padding: 10px;
+    }
+}
