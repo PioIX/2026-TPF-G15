@@ -236,3 +236,23 @@
         gap: 4px;
     }
 }
+
+
+.descripcionEvento {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    min-width: 0;
+}
+
+.equipoGol {
+    color: #8fe3a4;
+    font-size: 11px;
+    font-weight: bold;
+}
+
+.nombreJugador {
+    flex: 1;
+    min-width: 0;
+}
+

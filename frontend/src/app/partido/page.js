@@ -64,8 +64,10 @@ export default function PartidoPage() {
     const [golesLocal, setGolesLocal] = useState(0);
     const [golesVisitante, setGolesVisitante] = useState(0);
     const [eventos, setEventos] = useState([]);
+    const [goleadores, setGoleadores] = useState([]);
     const [finalizado, setFinalizado] = useState(false);
-    cosnt [goleadores, setGoleadores] = useState ([]);
+
+    // Hace avanzar el reloj hasta el minuto 90.
     useEffect(() => {
         if (finalizado) return;
 
@@ -83,17 +85,26 @@ export default function PartidoPage() {
         return () => clearInterval(intervalo);
     }, [finalizado]);
 
+    // Genera los eventos del partido.
     useEffect(() => {
         if (minuto === 0 || finalizado) return;
 
-        // Cada avance del reloj genera un evento.
         const puedeHaberGol = Math.random() < 0.22;
 
         if (puedeHaberGol) {
             const local = Math.random() < 0.5;
+
             const jugador = local
-                ? equipoLocal.jugadores[8 + Math.floor(Math.random() * 3)]
-                : equipoVisitante.jugadores[9 + Math.floor(Math.random() * 2)];
+                ? equipoLocal.jugadores[
+                    8 + Math.floor(Math.random() * 3)
+                ]
+                : equipoVisitante.jugadores[
+                    9 + Math.floor(Math.random() * 2)
+                ];
+
+            const nombreEquipo = local
+                ? equipoLocal.nombre
+                : equipoVisitante.nombre;
 
             if (local) {
                 setGolesLocal((goles) => goles + 1);
@@ -101,12 +112,23 @@ export default function PartidoPage() {
                 setGolesVisitante((goles) => goles + 1);
             }
 
+            // Registramos al goleador y su equipo.
+            setGoleadores((anteriores) => [
+                ...anteriores,
+                {
+                    nombre: jugador.nombre,
+                    numero: jugador.numero,
+                    equipo: local ? "local" : "visitante",
+                },
+            ]);
+
+            // Mostramos el gol en los eventos.
             setEventos((anteriores) => [
                 {
                     minuto,
                     tipo: "gol",
                     descripcion: `¡GOOOL de ${jugador.nombre}!`,
-                    equipo: local ? "local" : "visitante",
+                    nombreEquipo,
                 },
                 ...anteriores,
             ]);
@@ -124,15 +146,27 @@ export default function PartidoPage() {
                 ...anteriores,
             ]);
         }
-    }, [minuto]);
+    }, [minuto, finalizado]);
 
-    const reiniciarPartido = () => {
+    // Cuenta los goles de un jugador dentro de su equipo.
+    function contarGoles(jugador, equipo) {
+        return goleadores.filter(
+            (gol) =>
+                gol.nombre === jugador.nombre &&
+                gol.numero === jugador.numero &&
+                gol.equipo === equipo
+        ).length;
+    }
+
+    // Reinicia el partido y borra sus eventos anteriores.
+    function reiniciarPartido() {
         setMinuto(0);
         setGolesLocal(0);
         setGolesVisitante(0);
         setEventos([]);
+        setGoleadores([]);
         setFinalizado(false);
-    };
+    }
 
     return (
         <main className={styles.pagina}>
@@ -144,7 +178,9 @@ export default function PartidoPage() {
                 </div>
 
                 <div className={styles.marcador}>
-                    <p className={styles.competicion}>ARGENTINA FC · PARTIDO</p>
+                    <p className={styles.competicion}>
+                        ARGENTINA FC · PARTIDO
+                    </p>
 
                     <div className={styles.resultado}>
                         <span>{golesLocal}</span>
@@ -181,9 +217,22 @@ export default function PartidoPage() {
                                     <span className={styles.numero}>
                                         {jugador.numero}
                                     </span>
+
                                     <span className={styles.nombreJugador}>
                                         {jugador.nombre}
                                     </span>
+
+                                    {Array.from({
+                                        length: contarGoles(jugador, "local"),
+                                    }).map((_, indice) => (
+                                        <span
+                                            key={indice}
+                                            title="Gol de este jugador"
+                                        >
+                                            ⚽
+                                        </span>
+                                    ))}
+
                                     <span className={styles.posicion}>
                                         {jugador.posicion}
                                     </span>
@@ -201,9 +250,25 @@ export default function PartidoPage() {
                                     <span className={styles.numero}>
                                         {jugador.numero}
                                     </span>
+
                                     <span className={styles.nombreJugador}>
                                         {jugador.nombre}
                                     </span>
+
+                                    {Array.from({
+                                        length: contarGoles(
+                                            jugador,
+                                            "visitante"
+                                        ),
+                                    }).map((_, indice) => (
+                                        <span
+                                            key={indice}
+                                            title="Gol de este jugador"
+                                        >
+                                            ⚽
+                                        </span>
+                                    ))}
+
                                     <span className={styles.posicion}>
                                         {jugador.posicion}
                                     </span>
@@ -241,10 +306,19 @@ export default function PartidoPage() {
                                         {evento.tipo === "gol"
                                             ? "⚽"
                                             : evento.tipo === "tarjeta"
-                                            ? "🟨"
-                                            : "•"}
+                                                ? "🟨"
+                                                : "•"}
                                     </span>
-                                    <p>{evento.descripcion}</p>
+
+                                    <div className={styles.descripcionEvento}>
+                                        <p>{evento.descripcion}</p>
+
+                                        {evento.tipo === "gol" && (
+                                            <span className={styles.equipoGol}>
+                                                {evento.nombreEquipo}
+                                            </span>
+                                        )}
+                                    </div>
                                 </article>
                             ))
                         )}
@@ -257,8 +331,8 @@ export default function PartidoPage() {
                                 {golesLocal > golesVisitante
                                     ? `Ganó ${equipoLocal.nombre}`
                                     : golesVisitante > golesLocal
-                                    ? `Ganó ${equipoVisitante.nombre}`
-                                    : "El partido terminó en empate"}
+                                        ? `Ganó ${equipoVisitante.nombre}`
+                                        : "El partido terminó en empate"}
                             </p>
 
                             <button onClick={reiniciarPartido}>
