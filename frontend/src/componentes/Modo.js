@@ -7,7 +7,7 @@ export default function Modo({titulo, subtitulo, descripcion}){
             <h5>{subtitulo}</h5>
             <p>{descripcion}</p>
 
-            <Link href="/mi-equipo">
+            <Link href="/equipo">
                 <button>Jugar ahora</button>
             </Link>
         </div>

@@ -209,7 +209,6 @@ export default function PartidoPage() {
                     <div className={styles.dosEquipos}>
                         <div className={styles.listaEquipo}>
                             <h4>{equipoLocal.nombre}</h4>
-
                             {equipoLocal.jugadores.map((jugador) => (
                                 <div
                                     key={jugador.numero}
@@ -243,7 +242,6 @@ export default function PartidoPage() {
 
                         <div className={styles.listaEquipo}>
                             <h4>{equipoVisitante.nombre}</h4>
-
                             {equipoVisitante.jugadores.map((jugador) => (
                                 <div
                                     key={jugador.numero}
@@ -304,7 +302,6 @@ export default function PartidoPage() {
                                     <span className={styles.minutoEvento}>
                                         {evento.minuto}'
                                     </span>
-
                                     <span className={styles.iconoEvento}>
                                         {evento.tipo === "gol"
                                             ? "⚽"
@@ -330,7 +327,6 @@ export default function PartidoPage() {
                     {finalizado && (
                         <div className={styles.final}>
                             <h3>¡Partido finalizado!</h3>
-
                             <p>
                                 {golesLocal > golesVisitante
                                     ? `Ganó ${equipoLocal.nombre}`

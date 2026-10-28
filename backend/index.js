@@ -716,3 +716,72 @@ app.delete("/personajes/:id",
         }
     }
 );
+
+
+//FUNCIONAMIENTO PAGINA
+
+/* OBTENER MODOS */
+app.get("/modos", async (req, res) => {
+    try {
+        const modos = await realizarQuery(
+            `SELECT id_modo, nombre
+             FROM Modos
+             ORDER BY id_modo`
+        );
+
+        res.json(modos);
+    } catch (error) {
+        console.log("Error al obtener los modos:", error);
+        res.status(500).json({
+            mensaje: "Error al obtener los modos"
+        });
+    }
+});
+
+/* OBTENER FORMACIONES */
+app.get("/formaciones", async (req, res) => {
+    try {
+        const formaciones = await realizarQuery(
+            `SELECT id_formacion, nombre, cant_defensores,
+                    cant_mediocampistas, cant_delanteros
+             FROM Formaciones
+             ORDER BY id_formacion`
+        );
+
+        res.json(formaciones);
+    } catch (error) {
+        console.log("Error al obtener las formaciones:", error);
+        res.status(500).json({
+            mensaje: "Error al obtener las formaciones"
+        });
+    }
+});
+
+/* OBTENER PERSONAJES POR MODO */
+app.get("/modos/:id_modo/personajes", async (req, res) => {
+    try {
+        const idModo = Number(req.params.id_modo);
+
+        if (!Number.isInteger(idModo) || idModo <= 0) {
+            return res.status(400).json({
+                mensaje: "El modo seleccionado no es válido"
+            });
+        }
+
+        const personajes = await realizarQuery(
+            `SELECT id_personaje, id_modo, nombre, descripcion,
+                    posicion_natural, ataque, defensa, velocidad, habilidad
+             FROM Personajes
+             WHERE id_modo = ?
+             ORDER BY nombre`,
+            [idModo]
+        );
+
+        res.json(personajes);
+    } catch (error) {
+        console.log("Error al obtener los personajes:", error);
+        res.status(500).json({
+            mensaje: "Error al obtener los personajes"
+        });
+    }
+});
