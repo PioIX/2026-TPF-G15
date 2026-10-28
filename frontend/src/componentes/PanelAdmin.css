@@ -1,0 +1,512 @@
+/* ================================
+   PANEL DE ADMINISTRACIÓN
+   Argentina FC
+================================ */
+
+.admin-fondo {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    background: rgba(2, 12, 23, 0.82);
+    backdrop-filter: blur(5px);
+}
+
+.admin-ventana {
+    position: relative;
+    width: 100%;
+    max-width: 1150px;
+    max-height: 90vh;
+    overflow-y: auto;
+    padding: 32px;
+    background: #091827;
+    color: #e8f1fa;
+    border: 1px solid #20394f;
+    border-radius: 16px;
+    box-shadow: 0 24px 80px rgba(0, 0, 0, 0.45);
+    scrollbar-width: thin;
+    scrollbar-color: #31536d #091827;
+}
+
+/* Títulos y textos */
+
+.admin-ventana h2 {
+    margin: 0 40px 8px 0;
+    color: #f4f8fc;
+    font-size: 26px;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+}
+
+.admin-ventana > p {
+    margin: 0 0 24px;
+    color: #aab9ca;
+    font-size: 13px;
+    line-height: 1.6;
+}
+
+.admin-ventana h3 {
+    margin: 26px 0 16px;
+    color: #eaf3fc;
+    font-size: 17px;
+    font-weight: 750;
+}
+
+.admin-ventana button,
+.admin-ventana input,
+.admin-ventana select,
+.admin-ventana textarea {
+    font: inherit;
+}
+
+/* Botón para cerrar */
+
+.admin-cerrar {
+    position: absolute;
+    top: 20px;
+    right: 22px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 38px;
+    height: 38px;
+    padding: 0;
+    background: #122b40;
+    color: #c8d8e8;
+    border: 1px solid #29445b;
+    border-radius: 10px;
+    font-size: 26px;
+    line-height: 1;
+    cursor: pointer;
+    transition: 0.2s ease;
+}
+
+.admin-cerrar:hover {
+    background: #203d55;
+    color: #ffffff;
+    border-color: #7bd6f2;
+}
+
+/* Selector de secciones */
+
+.admin-switch {
+    display: flex;
+    gap: 8px;
+    padding: 6px;
+    margin-bottom: 22px;
+    background: #071321;
+    border: 1px solid #1b3348;
+    border-radius: 12px;
+}
+
+.admin-switch button {
+    padding: 10px 20px;
+    background: transparent;
+    color: #aabbd0;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 650;
+    cursor: pointer;
+    transition: 0.2s ease;
+}
+
+.admin-switch button:hover {
+    background: #132b40;
+    color: #ffffff;
+}
+
+.admin-switch button.activo {
+    background: #19445f;
+    color: #8ce2fa;
+    border-color: #285a77;
+}
+
+/* Mensajes de estado */
+
+.admin-mensaje {
+    padding: 13px 16px;
+    margin: 0 0 20px !important;
+    background: #112c40;
+    color: #91e5fa !important;
+    border: 1px solid #28516a;
+    border-left: 4px solid #78d9f2;
+    border-radius: 8px;
+    font-size: 13px !important;
+}
+
+/* Formularios */
+
+.admin-formulario {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    padding: 24px;
+    background: #0e2336;
+    border: 1px solid #203b52;
+    border-radius: 13px;
+}
+
+.admin-formulario h3 {
+    margin: 0 0 4px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid #263e52;
+}
+
+.admin-formulario > label,
+.admin-estadisticas label {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    color: #c7d5e5;
+    font-size: 12px;
+    font-weight: 650;
+}
+
+.admin-formulario input,
+.admin-formulario select,
+.admin-formulario textarea {
+    box-sizing: border-box;
+    width: 100%;
+    min-width: 0;
+    padding: 11px 13px;
+    background: #091827;
+    color: #edf5fd;
+    border: 1px solid #2a455c;
+    border-radius: 8px;
+    outline: none;
+    font-size: 13px;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.admin-formulario input:focus,
+.admin-formulario select:focus,
+.admin-formulario textarea:focus {
+    border-color: #79d8f1;
+    box-shadow: 0 0 0 3px rgba(121, 216, 241, 0.12);
+}
+
+.admin-formulario input::placeholder,
+.admin-formulario textarea::placeholder {
+    color: #71869a;
+}
+
+.admin-formulario select {
+    cursor: pointer;
+}
+
+.admin-formulario textarea {
+    min-height: 90px;
+    resize: vertical;
+    line-height: 1.5;
+}
+
+/* Estadísticas del personaje */
+
+.admin-estadisticas {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 14px;
+    padding: 18px;
+    background: #091827;
+    border: 1px solid #20394f;
+    border-radius: 10px;
+}
+
+.admin-estadisticas input {
+    font-weight: 750;
+    font-variant-numeric: tabular-nums;
+}
+
+/* Botones del formulario */
+
+.admin-botones-form {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 4px;
+}
+
+.admin-formulario button,
+.admin-editar-permisos button {
+    align-self: flex-start;
+    padding: 11px 18px;
+    background: #79d8ef;
+    color: #082033;
+    border: 1px solid #79d8ef;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 800;
+    cursor: pointer;
+    transition: background 0.2s, transform 0.2s;
+}
+
+.admin-formulario button:hover,
+.admin-editar-permisos button:hover {
+    background: #a0e9fa;
+    border-color: #a0e9fa;
+    transform: translateY(-1px);
+}
+
+.admin-formulario button.secundario,
+.admin-editar-permisos button.secundario {
+    background: #142b3e;
+    color: #c8d7e7;
+    border-color: #30495e;
+}
+
+.admin-formulario button.secundario:hover,
+.admin-editar-permisos button.secundario:hover {
+    background: #203d53;
+    color: #ffffff;
+}
+
+/* Tabla de datos */
+
+.admin-tabla-contenedor {
+    width: 100%;
+    overflow-x: auto;
+    margin-bottom: 24px;
+    background: #0e2336;
+    border: 1px solid #203b52;
+    border-radius: 12px;
+    scrollbar-width: thin;
+    scrollbar-color: #31536d #0e2336;
+}
+
+.admin-tabla {
+    width: 100%;
+    min-width: 820px;
+    border-collapse: collapse;
+    text-align: left;
+    font-size: 12px;
+}
+
+.admin-tabla thead {
+    background: #142d42;
+}
+
+.admin-tabla th {
+    padding: 15px 14px;
+    color: #9edff2;
+    font-size: 11px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.45px;
+    white-space: nowrap;
+    border-bottom: 1px solid #2a455b;
+}
+
+.admin-tabla td {
+    padding: 13px 14px;
+    color: #d2deeb;
+    border-bottom: 1px solid #20374b;
+    white-space: nowrap;
+}
+
+.admin-tabla tbody tr {
+    transition: background 0.15s ease;
+}
+
+.admin-tabla tbody tr:hover {
+    background: #142c40;
+}
+
+.admin-tabla tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.admin-tabla tbody tr td:first-child {
+    color: #f2f7fc;
+    font-weight: 700;
+}
+
+.admin-tabla tbody tr td[colspan] {
+    padding: 28px 14px;
+    color: #94a8bc;
+    text-align: center;
+    font-weight: 400;
+}
+
+/* Acciones de las filas */
+
+.admin-acciones {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+}
+
+.admin-acciones button {
+    padding: 7px 11px;
+    background: #19445f;
+    color: #a6e8fa;
+    border: 1px solid #2a5a76;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 750;
+    cursor: pointer;
+    transition: 0.2s ease;
+}
+
+.admin-acciones button:hover {
+    background: #245a78;
+    color: #ffffff;
+}
+
+.admin-acciones button.eliminar {
+    background: #38212b;
+    color: #ffabb6;
+    border-color: #61313e;
+}
+
+.admin-acciones button.eliminar:hover {
+    background: #572a37;
+    color: #ffd4da;
+}
+
+/* Edición de permisos */
+
+.admin-editar-permisos {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    padding: 22px;
+    margin-top: 20px;
+    background: #0e2336;
+    border: 1px solid #29465c;
+    border-radius: 12px;
+}
+
+.admin-editar-permisos h3 {
+    flex-basis: 100%;
+    margin: 0;
+}
+
+.admin-editar-permisos p {
+    flex-basis: 100%;
+    margin: 0 0 8px;
+    color: #aabbd0;
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+/* Scrollbar de la ventana */
+
+.admin-ventana::-webkit-scrollbar,
+.admin-tabla-contenedor::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+.admin-ventana::-webkit-scrollbar-track,
+.admin-tabla-contenedor::-webkit-scrollbar-track {
+    background: #091827;
+}
+
+.admin-ventana::-webkit-scrollbar-thumb,
+.admin-tabla-contenedor::-webkit-scrollbar-thumb {
+    background: #31536d;
+    border-radius: 10px;
+}
+
+.admin-ventana::-webkit-scrollbar-thumb:hover,
+.admin-tabla-contenedor::-webkit-scrollbar-thumb:hover {
+    background: #477895;
+}
+
+/* Adaptación a tablets */
+
+@media (max-width: 768px) {
+    .admin-fondo {
+        padding: 12px;
+        align-items: center;
+    }
+
+    .admin-ventana {
+        max-height: 94vh;
+        padding: 22px 16px;
+        border-radius: 12px;
+    }
+
+    .admin-ventana h2 {
+        padding-right: 28px;
+        font-size: 21px;
+    }
+
+    .admin-cerrar {
+        top: 14px;
+        right: 14px;
+        width: 34px;
+        height: 34px;
+    }
+
+    .admin-estadisticas {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 12px;
+        padding: 14px;
+    }
+
+    .admin-formulario {
+        padding: 17px;
+    }
+
+    .admin-switch button {
+        flex: 1;
+        padding: 10px;
+    }
+
+    .admin-tabla {
+        min-width: 760px;
+    }
+}
+
+/* Adaptación a celulares */
+
+@media (max-width: 480px) {
+    .admin-fondo {
+        padding: 8px;
+    }
+
+    .admin-ventana {
+        max-height: 96vh;
+        padding: 20px 12px;
+    }
+
+    .admin-ventana h2 {
+        font-size: 19px;
+    }
+
+    .admin-ventana h3 {
+        font-size: 15px;
+    }
+
+    .admin-formulario {
+        padding: 14px;
+        gap: 14px;
+    }
+
+    .admin-estadisticas {
+        gap: 10px;
+        padding: 12px;
+    }
+
+    .admin-botones-form {
+        flex-direction: column;
+    }
+
+    .admin-botones-form button {
+        width: 100%;
+    }
+
+    .admin-editar-permisos {
+        padding: 16px;
+    }
+
+    .admin-editar-permisos button {
+        width: 100%;
+    }
+}
