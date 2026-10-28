@@ -1,6 +1,7 @@
 
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import styles from "./form.module.css";
 
@@ -10,6 +11,7 @@ export default function Form({
     buttonText,
     onButtonRegister
 }) {
+    const router = useRouter();
     const [username, setUsername] = useState("");
     const [email, setEmail] = useState("");
     const [contrasena, setContrasena] = useState("");
@@ -27,6 +29,7 @@ export default function Form({
         try {
             const response = await fetch("http://localhost:4000/login", {
                 method: "POST",
+                credentials: "include",
                 headers: {
                     "Content-Type": "application/json"
                 },
@@ -46,7 +49,7 @@ export default function Form({
                     JSON.stringify(data.usuario)
                 );
 
-                window.location.href = "/";
+                router.push("/inicio");
             } else {
                 alert(data.mensaje);
             }
