@@ -40,23 +40,12 @@ const equipoVisitante = {
     ],
 };
 
-const eventosPosibles = [
-    {
-        tipo: "ataque",
-        descripcion: "¡Gran jugada colectiva! El equipo avanza al área rival.",
-    },
-    {
-        tipo: "ataque",
-        descripcion: "¡Remate al arco! El arquero responde y evita el gol.",
-    },
-    {
-        tipo: "tarjeta",
-        descripcion: "Tarjeta amarilla por una infracción en el mediocampo.",
-    },
-    {
-        tipo: "ataque",
-        descripcion: "El equipo recupera la pelota y sale de contraataque.",
-    },
+const eventosAtaque = [
+    "¡Gran jugada colectiva! El equipo avanza al área rival.",
+    "¡Remate al arco! El arquero responde y evita el gol.",
+    "El equipo recupera la pelota y sale de contraataque.",
+    "¡Peligro en el área! La defensa logra despejar la pelota.",
+    "El equipo intenta una combinación ofensiva, pero pierde la pelota.",
 ];
 
 export default function PartidoPage() {
@@ -65,6 +54,7 @@ export default function PartidoPage() {
     const [golesVisitante, setGolesVisitante] = useState(0);
     const [eventos, setEventos] = useState([]);
     const [goleadores, setGoleadores] = useState([]);
+    const [amonestados, setAmonestados] = useState([]);
     const [finalizado, setFinalizado] = useState(false);
 
     // Hace avanzar el reloj hasta el minuto 90.
@@ -85,63 +75,253 @@ export default function PartidoPage() {
         return () => clearInterval(intervalo);
     }, [finalizado]);
 
+    // Registra un gol y lo identifica según su tipo.
+    function registrarGol(jugador, local, descripcion, tipoGol = "normal") {
+        const equipo = local ? "local" : "visitante";
+        const nombreEquipo = local
+            ? equipoLocal.nombre
+            : equipoVisitante.nombre;
+
+        if (local) {
+            setGolesLocal((goles) => goles + 1);
+        } else {
+            setGolesVisitante((goles) => goles + 1);
+        }
+
+        setGoleadores((anteriores) => [
+            ...anteriores,
+            {
+                nombre: jugador.nombre,
+                numero: jugador.numero,
+                equipo,
+                tipo: tipoGol,
+            },
+        ]);
+
+        setEventos((anteriores) => [
+            {
+                minuto,
+                tipo: "gol",
+                tipoGol,
+                descripcion,
+                nombreEquipo,
+            },
+            ...anteriores,
+        ]);
+    }
+
+    // Elige un delantero para el equipo que genera la jugada.
+    function elegirDelantero(local) {
+        const jugadores = local
+            ? equipoLocal.jugadores
+            : equipoVisitante.jugadores;
+
+        const delanteros = jugadores.filter(
+            (jugador) => jugador.posicion === "DEL"
+        );
+
+        return delanteros[
+            Math.floor(Math.random() * delanteros.length)
+        ];
+    }
+
     // Genera los eventos del partido.
     useEffect(() => {
         if (minuto === 0 || finalizado) return;
 
-        const puedeHaberGol = Math.random() < 0.22;
+        const local = Math.random() < 0.5;
+        const nombreEquipo = local
+            ? equipoLocal.nombre
+            : equipoVisitante.nombre;
 
-        if (puedeHaberGol) {
-            const local = Math.random() < 0.5;
+        // Gol durante una jugada normal.
+        if (Math.random() < 0.22) {
+            const jugador = elegirDelantero(local);
 
-            const jugador = local
-                ? equipoLocal.jugadores[
-                    8 + Math.floor(Math.random() * 3)
-                ]
-                : equipoVisitante.jugadores[
-                    9 + Math.floor(Math.random() * 2)
+            registrarGol(
+                jugador,
+                local,
+                `¡GOOOL de ${jugador.nombre}!`
+            );
+
+            return;
+        }
+
+        const azar = Math.random() * 100;
+
+        // Ataques.
+        if (azar < 35) {
+            const descripcion =
+                eventosAtaque[
+                    Math.floor(Math.random() * eventosAtaque.length)
                 ];
 
-            const nombreEquipo = local
-                ? equipoLocal.nombre
-                : equipoVisitante.nombre;
-
-            if (local) {
-                setGolesLocal((goles) => goles + 1);
-            } else {
-                setGolesVisitante((goles) => goles + 1);
-            }
-
-            // Registramos al goleador y su equipo.
-            setGoleadores((anteriores) => [
-                ...anteriores,
-                {
-                    nombre: jugador.nombre,
-                    numero: jugador.numero,
-                    equipo: local ? "local" : "visitante",
-                },
-            ]);
-
-            // Mostramos el gol en los eventos.
             setEventos((anteriores) => [
                 {
                     minuto,
-                    tipo: "gol",
-                    descripcion: `¡GOOOL de ${jugador.nombre}!`,
+                    tipo: "ataque",
+                    descripcion,
                     nombreEquipo,
                 },
                 ...anteriores,
             ]);
-        } else {
-            const evento =
-                eventosPosibles[
-                    Math.floor(Math.random() * eventosPosibles.length)
-                ];
+
+            return;
+        }
+
+        // Tarjetas amarillas: una como máximo por jugador.
+        if (azar < 52) {
+            const equipo = local ? "local" : "visitante";
+            const jugadores = local
+                ? equipoLocal.jugadores
+                : equipoVisitante.jugadores;
+
+            const jugadoresSinAmarilla = jugadores.filter(
+                (jugador) =>
+                    !amonestados.some(
+                        (amonestado) =>
+                            amonestado.nombre === jugador.nombre &&
+                            amonestado.numero === jugador.numero &&
+                            amonestado.equipo === equipo
+                    )
+            );
+
+            if (jugadoresSinAmarilla.length > 0) {
+                const jugador =
+                    jugadoresSinAmarilla[
+                        Math.floor(
+                            Math.random() * jugadoresSinAmarilla.length
+                        )
+                    ];
+
+                setAmonestados((anteriores) => [
+                    ...anteriores,
+                    {
+                        nombre: jugador.nombre,
+                        numero: jugador.numero,
+                        equipo,
+                    },
+                ]);
+
+                setEventos((anteriores) => [
+                    {
+                        minuto,
+                        tipo: "tarjeta",
+                        descripcion: `Tarjeta amarilla para ${jugador.nombre} por una infracción.`,
+                        nombreEquipo,
+                    },
+                    ...anteriores,
+                ]);
+            } else {
+                setEventos((anteriores) => [
+                    {
+                        minuto,
+                        tipo: "ataque",
+                        descripcion:
+                            "El árbitro deja seguir el juego. El equipo recupera la pelota.",
+                        nombreEquipo,
+                    },
+                    ...anteriores,
+                ]);
+            }
+
+            return;
+        }
+
+        // Córners.
+        if (azar < 72) {
+            setEventos((anteriores) => [
+                {
+                    minuto,
+                    tipo: "corner",
+                    descripcion: `¡Tiro de esquina para ${nombreEquipo}! El equipo prepara el centro al área.`,
+                    nombreEquipo,
+                },
+                ...anteriores,
+            ]);
+
+            return;
+        }
+
+        // Tiros libres.
+        if (azar < 93) {
+            const resultadoTiroLibre = Math.random();
+
+            if (resultadoTiroLibre < 0.25) {
+                const jugador = elegirDelantero(local);
+
+                registrarGol(
+                    jugador,
+                    local,
+                    `¡GOOOL de ${jugador.nombre}! ¡Golazo de tiro libre directo!`,
+                    "tiroLibre"
+                );
+
+                return;
+            }
+
+            if (resultadoTiroLibre < 0.5) {
+                setEventos((anteriores) => [
+                    {
+                        minuto,
+                        tipo: "tiroLibre",
+                        descripcion:
+                            `Tiro libre para ${nombreEquipo}. El centro llega al área, pero nadie logra conectar el cabezazo.`,
+                        nombreEquipo,
+                    },
+                    ...anteriores,
+                ]);
+
+                return;
+            }
+
+            if (resultadoTiroLibre < 0.75) {
+                const jugador = elegirDelantero(local);
+
+                registrarGol(
+                    jugador,
+                    local,
+                    `¡GOOOL de ${jugador.nombre}! Gran centro de tiro libre y cabezazo a la red.`,
+                    "tiroLibre"
+                );
+
+                return;
+            }
 
             setEventos((anteriores) => [
                 {
-                    ...evento,
                     minuto,
+                    tipo: "tiroLibre",
+                    descripcion:
+                        `Tiro libre para ${nombreEquipo}. ¡El remate se va desviado por encima del travesaño!`,
+                    nombreEquipo,
+                },
+                ...anteriores,
+            ]);
+
+            return;
+        }
+
+        // Penales: gol o fallo.
+        const conviertePenal = Math.random() < 0.5;
+
+        if (conviertePenal) {
+            const jugador = elegirDelantero(local);
+
+            registrarGol(
+                jugador,
+                local,
+                `¡GOOOL de ${jugador.nombre}! ¡Convierte el penal!`,
+                "penal"
+            );
+        } else {
+            setEventos((anteriores) => [
+                {
+                    minuto,
+                    tipo: "penal",
+                    descripcion:
+                        `¡Penal para ${nombreEquipo}! El remate no termina en gol: el arquero lo ataja o el disparo se va desviado.`,
+                    nombreEquipo,
                 },
                 ...anteriores,
             ]);
@@ -158,13 +338,24 @@ export default function PartidoPage() {
         ).length;
     }
 
-    // Reinicia el partido y borra sus eventos anteriores.
+    // Comprueba si el jugador recibió una tarjeta amarilla.
+    function tieneAmarilla(jugador, equipo) {
+        return amonestados.some(
+            (amonestado) =>
+                amonestado.nombre === jugador.nombre &&
+                amonestado.numero === jugador.numero &&
+                amonestado.equipo === equipo
+        );
+    }
+
+    // Reinicia el partido.
     function reiniciarPartido() {
         setMinuto(0);
         setGolesLocal(0);
         setGolesVisitante(0);
         setEventos([]);
         setGoleadores([]);
+        setAmonestados([]);
         setFinalizado(false);
     }
 
@@ -209,6 +400,7 @@ export default function PartidoPage() {
                     <div className={styles.dosEquipos}>
                         <div className={styles.listaEquipo}>
                             <h4>{equipoLocal.nombre}</h4>
+
                             {equipoLocal.jugadores.map((jugador) => (
                                 <div
                                     key={jugador.numero}
@@ -222,16 +414,35 @@ export default function PartidoPage() {
                                         {jugador.nombre}
                                     </span>
 
-                                    {Array.from({
-                                        length: contarGoles(jugador, "local"),
-                                    }).map((_, indice) => (
-                                        <span
-                                            key={indice}
-                                            title="Gol de este jugador"
-                                        >
-                                            ⚽
-                                        </span>
-                                    ))}
+                                    {goleadores
+                                        .filter(
+                                            (gol) =>
+                                                gol.nombre === jugador.nombre &&
+                                                gol.numero === jugador.numero &&
+                                                gol.equipo === "local"
+                                        )
+                                        .map((gol, indice) => (
+                                            <span
+                                                key={`gol-${indice}`}
+                                                title={
+                                                    gol.tipo === "penal"
+                                                        ? "Gol de penal"
+                                                        : gol.tipo === "tiroLibre"
+                                                            ? "Gol de tiro libre"
+                                                            : "Gol"
+                                                }
+                                            >
+                                                {gol.tipo === "penal"
+                                                    ? "⚽🎯"
+                                                    : gol.tipo === "tiroLibre"
+                                                        ? "⚽🥅"
+                                                        : "⚽"}
+                                            </span>
+                                        ))}
+
+                                    {tieneAmarilla(jugador, "local") && (
+                                        <span title="Tarjeta amarilla">🟨</span>
+                                    )}
 
                                     <span className={styles.posicion}>
                                         {jugador.posicion}
@@ -242,6 +453,7 @@ export default function PartidoPage() {
 
                         <div className={styles.listaEquipo}>
                             <h4>{equipoVisitante.nombre}</h4>
+
                             {equipoVisitante.jugadores.map((jugador) => (
                                 <div
                                     key={jugador.numero}
@@ -255,19 +467,35 @@ export default function PartidoPage() {
                                         {jugador.nombre}
                                     </span>
 
-                                    {Array.from({
-                                        length: contarGoles(
-                                            jugador,
-                                            "visitante"
-                                        ),
-                                    }).map((_, indice) => (
-                                        <span
-                                            key={indice}
-                                            title="Gol de este jugador"
-                                        >
-                                            ⚽
-                                        </span>
-                                    ))}
+                                    {goleadores
+                                        .filter(
+                                            (gol) =>
+                                                gol.nombre === jugador.nombre &&
+                                                gol.numero === jugador.numero &&
+                                                gol.equipo === "visitante"
+                                        )
+                                        .map((gol, indice) => (
+                                            <span
+                                                key={`gol-${indice}`}
+                                                title={
+                                                    gol.tipo === "penal"
+                                                        ? "Gol de penal"
+                                                        : gol.tipo === "tiroLibre"
+                                                            ? "Gol de tiro libre"
+                                                            : "Gol"
+                                                }
+                                            >
+                                                {gol.tipo === "penal"
+                                                    ? "⚽🎯"
+                                                    : gol.tipo === "tiroLibre"
+                                                        ? "⚽🥅"
+                                                        : "⚽"}
+                                            </span>
+                                        ))}
+
+                                    {tieneAmarilla(jugador, "visitante") && (
+                                        <span title="Tarjeta amarilla">🟨</span>
+                                    )}
 
                                     <span className={styles.posicion}>
                                         {jugador.posicion}
@@ -302,18 +530,29 @@ export default function PartidoPage() {
                                     <span className={styles.minutoEvento}>
                                         {evento.minuto}'
                                     </span>
+
                                     <span className={styles.iconoEvento}>
                                         {evento.tipo === "gol"
-                                            ? "⚽"
+                                            ? evento.tipoGol === "penal"
+                                                ? "🎯"
+                                                : evento.tipoGol === "tiroLibre"
+                                                    ? "🥅"
+                                                    : "⚽"
                                             : evento.tipo === "tarjeta"
                                                 ? "🟨"
-                                                : "•"}
+                                                : evento.tipo === "corner"
+                                                    ? "🚩"
+                                                    : evento.tipo === "tiroLibre"
+                                                        ? "🥅"
+                                                        : evento.tipo === "penal"
+                                                            ? "🎯"
+                                                            : "•"}
                                     </span>
 
                                     <div className={styles.descripcionEvento}>
                                         <p>{evento.descripcion}</p>
 
-                                        {evento.tipo === "gol" && (
+                                        {evento.nombreEquipo && (
                                             <span className={styles.equipoGol}>
                                                 {evento.nombreEquipo}
                                             </span>
@@ -327,6 +566,7 @@ export default function PartidoPage() {
                     {finalizado && (
                         <div className={styles.final}>
                             <h3>¡Partido finalizado!</h3>
+
                             <p>
                                 {golesLocal > golesVisitante
                                     ? `Ganó ${equipoLocal.nombre}`
