@@ -5,6 +5,8 @@ import styles from "./inicio.module.css";
 import Modo from "@/componentes/Modo";
 import EstadisticasTemporada from "@/componentes/EstadisticasTemporada";
 import PanelAdmin from "@/componentes/PanelAdmin";
+import Link from "next/link";
+
 
 export default function InicioPage() {
     const [modo, setModo] = useState("");
@@ -30,6 +32,33 @@ export default function InicioPage() {
 
     return (
         <main className={styles.inicio}>
+            <nav
+                className={styles.navbar}
+                aria-label="Navegación principal"
+            >
+                <Link href="/inicio" className={`${styles.enlaceNav} ${styles.activo}`}>
+                    Inicio
+                </Link>
+
+                <Link href="/equipo" className={styles.enlaceNav}>
+                    Mi equipo
+                </Link>
+
+                <Link href="/partido" className={styles.enlaceNav}>
+                    Partidas
+                </Link>
+
+                <Link
+                    href="/ranking"
+                    className={styles.enlaceNav}
+                >
+                    Ranking
+                </Link>
+
+                <Link href="/perfil" className={styles.enlaceNav}>
+                    Perfil
+                </Link>
+            </nav>
             <header className={styles["inicio-encabezado"]}>
                 <span className={styles["inicio-etiqueta"]}>
                     PROTOTIPO · DATOS FICTICIOS
