@@ -1,4 +1,5 @@
 import Personaje from "./Personaje"
+import styles from "@/app/equipo/equipo.module.css";
 
 export default function BandejaPersonajes ({personajes, onSeleccionarPersonaje}){
     return(

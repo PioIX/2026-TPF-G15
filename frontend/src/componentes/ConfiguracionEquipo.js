@@ -1,5 +1,7 @@
 "use client";
 
+import styles from "@/app/equipo/equipo.module.css";
+
 export default function ConfiguracionEquipo ({formaciones, id_formacion, setIdFormacion, estrategia, setEstrategia, tipoPartida, setTipoPartida}){
     return (
         <div className={styles.configuracion}>

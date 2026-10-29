@@ -1,3 +1,5 @@
+import styles from "@/app/equipo/equipo.module.css";
+
 export default function Personaje ({personaje, onClick}) {
     return (
         <div>
