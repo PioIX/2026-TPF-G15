@@ -1,4 +1,5 @@
 import PosicionJugador from "./PosicionJugador"
+import styles from "@/app/equipo/equipo.module.css";
 
 
 export default function Cancha({posiciones, equipo, ordenSeleccionado, onSeleccionarPosicion}){

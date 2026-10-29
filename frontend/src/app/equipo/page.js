@@ -3,6 +3,8 @@
 import { useState } from "react";
 import Link from "next/link";
 
+import styles from "./equipo.module.css";
+
 import ConfiguracionEquipo from "@/componentes/ConfiguracionEquipo";
 import Cancha from "@/componentes/Cancha";
 import BandejaPersonajes from "@/componentes/BandejaPersonajes";
@@ -54,7 +56,7 @@ const personajesIniciales=[
         ataque: 30,
         defensa: 91,
         velocidad: 65,
-        habilidad: 84,
+        habilidad: 84, 
     },
     {
         id_personaje: 2,
@@ -160,8 +162,78 @@ function confirmarEquipo(){
 }
 
 return (
-    <div>
-        
+    <div className={styles.pagina}>
+        <header className={styles.encabezado}>
+            <div className={styles.marca}>
+                <div className={styles.logo}>AFC</div>
+
+                <div>
+                    <h1>Argentina FC</h1>
+                    <p>Arma tu equipo</p>
+                </div>
+            </div>
+
+            <div className={styles.estado}>
+                Conectado
+            </div>
+
+            <nav className={styles.nav}>
+                <Link href="/inicio">Inicio</Link>
+                <span className={styles.activo}>
+                    Mi equipo
+                </span>
+
+                <Link href="/partido">Partido</Link>
+                <Link href="/ranking">Rankings</Link>
+                <Link href="perfil">Perfil</Link>
+            </nav>
+        </header>
+
+        <section className={styles.contenido}>
+            <span className={styles.etiqueta}>CENTRO TACTICO</span>
+
+            <h2>Arma tu equipó</h2>
+
+            <p className={styles.introduccion}>
+                Desafio: Proceres argentinos - Elegi un personaje y luego elegi una posicion
+            </p>
+
+            <div className={styles.columnas}>
+                <section className={styles.panelEquipo}>
+                    <ConfiguracionEquipo 
+                        formaciones={formacionesIniciales} 
+                        id_formacion={id_formacion} 
+                        setIdFormacion={setIdFormacion}
+                        estrategia={estrategia}
+                        setEstrategia={setEstrategia}
+                        tipoPartida={tipoPartida}
+                        setTipoPartida={setTipoPartida}
+                    />
+
+                    <Cancha 
+                        posiciones={posicionesIniciales}
+                        equipo={equipo}
+                        ordenSeleccionado={ordenSeleccionado}
+                        onSeleccionarPosicion={setOrdenSeleccionado}
+                    />
+
+                    <div className={styles.confirmacion}>
+                        <button onClick={confirmarEquipo}>
+                            Confirmar equipo
+                        </button>
+
+                        <span>
+                            {Object.keys(equipo).length} de 11 puestos ocupados
+                        </span>
+                    </div>
+                </section>
+
+                <BandejaPersonajes
+                    personajes={personajes}
+                    onSeleccionarPersonaje={seleccionarPersonaje}
+                />
+            </div>
+        </section>
     </div>
 )
 
