@@ -1,6 +1,7 @@
 "use client"
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 
 import styles from "./equipo.module.css";
@@ -46,60 +47,51 @@ const posicionesIniciales = [
     {orden: 10, posicion: "DEL", x: 50, y: 24},
     {orden: 11, posicion: "DEL", x: 79, y: 30},
 ];
-const personajesIniciales=[
-    {   
-        id_personaje: 1,
-        modo_id: 1,
-        nombre: "Capitán del Río",
-        descripcion: "Arquero del equipo",
-        posicion_natural: "ARQ",
-        ataque: 30,
-        defensa: 91,
-        velocidad: 65,
-        habilidad: 84, 
-    },
-    {
-        id_personaje: 2,
-        modo_id: 1,
-        nombre: "Defensor Feroz",
-        descripcion: "Defensor imbatible",
-        posicion_natural: "DEF",
-        ataque: 40,
-        defensa: 85,
-        velocidad: 60,
-        habilidad: 75,
-    },
-    {
-        id_personaje: 3,
-        modo_id: 1,
-        nombre: "Delantero Letal",
-        descripcion: "Goleador nato",
-        posicion_natural: "DEL",
-        ataque: 90,
-        defensa: 50,
-        velocidad: 80,
-        habilidad: 70,
-    },
-    {
-        id_personaje: 4,
-        modo_id: 1,
-        nombre: "General del Sur",
-        descripcion: "Delantero del equipo",
-        posicion_natural: "DEL",
-        ataque: 92,
-        defensa: 46,
-        velocidad: 85,
-        habilidad: 83,
-    }
-];
 
 export default function EquipoPage(){
     const [id_formacion, setIdFormacion] = useState(1);
     const [estrategia, setEstrategia] = useState("Equilibrada");
     const [tipoPartida, setTipoPartida] = useState("Individual"); 
     const [equipo, setEquipo] = useState({});
-    const [personajes, setPersonajes] = useState(personajesIniciales);
     const [ordenSeleccionado, setOrdenSeleccionado] = useState(null);
+    const [personajes,setPersonajes] = useState([]);
+    const [cargandoPersonajes,setCargandoPersonajes] = useState(true);
+    const [errorPersonajes,setErrorPersonajes] = useState(null);
+
+    const searchParams = useSearchParams();
+
+    const id_modo = searchParams.get("id_modo"); 
+
+    useEffect(()=>{
+        async function obtenerPersonajes(){
+            try{ 
+                setCargandoPersonajes(true);
+                setErrorPersonajes(null);
+
+                const response = await fetch(
+                  `http://localhost:4000/modos/${id_modo}/personajes`
+                );
+
+                if (!response.ok){
+                    throw new Error ("No se pudieron obtener los personajes");
+                }
+
+                const data = await response.json();
+
+                console.log("Personajes recibidos", data);
+
+                setPersonajes(data);
+
+            } catch (error){
+                console.log("Error al obtener el personaje", error);
+                setErrorPersonajes(error.message);
+            } finally {
+                setCargandoPersonajes(false);
+            }
+        }
+
+        obtenerPersonajes();
+    }, [id_modo]);
 
     const formacion_seleccionada = formacionesIniciales.find(
         (formacion) =>formacion.id_formacion === id_formacion  
@@ -195,7 +187,7 @@ return (
             <h2>Arma tu equipó</h2>
 
             <p className={styles.introduccion}>
-                Desafio: Proceres argentinos - Elegi un personaje y luego elegi una posicion
+                Desafío: {id_modo === "1" ? "Próceres argentinos" : "Profes del Pío IX"} - Elegí un personaje y luego elegí una posición.
             </p>
 
             <div className={styles.columnas}>
@@ -231,6 +223,8 @@ return (
                 <BandejaPersonajes
                     personajes={personajes}
                     onSeleccionarPersonaje={seleccionarPersonaje}
+                    cargando={cargandoPersonajes}
+                    error={errorPersonajes}
                 />
             </div>
         </section>
