@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 
@@ -48,7 +48,7 @@ const posicionesIniciales = [
     {orden: 11, posicion: "DEL", x: 79, y: 30},
 ];
 
-export default function EquipoPage(){
+function EquipoContenido(){
     const [id_formacion, setIdFormacion] = useState(1);
     const [estrategia, setEstrategia] = useState("Equilibrada");
     const [tipoPartida, setTipoPartida] = useState("Individual"); 
@@ -64,9 +64,19 @@ export default function EquipoPage(){
 
     useEffect(()=>{
         async function obtenerPersonajes(){
+            if (!id_modo){
+                setErrorPersonajes("No se selecciono ningun modo");
+                setCargandoPersonajes(false);
+                setPersonajes([]);
+                return;
+            }
+
             try{ 
                 setCargandoPersonajes(true);
                 setErrorPersonajes(null);
+
+                console.log("Id del modo: ", id_modo);
+                console.log("URL: ", `http://localhost:4000/modos/${id_modo}/personajes`)
 
                 const response = await fetch(
                   `http://localhost:4000/modos/${id_modo}/personajes`
@@ -84,7 +94,7 @@ export default function EquipoPage(){
 
             } catch (error){
                 console.log("Error al obtener el personaje", error);
-                setErrorPersonajes(error.message);
+                setErrorPersonajes("Ocurrio un error al cargar los personajes");
             } finally {
                 setCargandoPersonajes(false);
             }
@@ -93,10 +103,6 @@ export default function EquipoPage(){
         obtenerPersonajes();
     }, [id_modo]);
 
-    const formacion_seleccionada = formacionesIniciales.find(
-        (formacion) =>formacion.id_formacion === id_formacion  
-    )
-
     function seleccionarPersonaje(personaje) {
         if (ordenSeleccionado === null){
             alert("Primero seleccioná una posición en la cancha.");
@@ -104,28 +110,22 @@ export default function EquipoPage(){
         }
     
 
-    const puesto = posicionesIniciales.find(
-        (posicion) => posicion.orden=== ordenSeleccionado
-    )
+        const puesto = posicionesIniciales.find(
+            (posicion) => posicion.orden=== ordenSeleccionado
+        )
 
-    if(puesto.posicion !== personaje.posicion_natural){
-        alert(
-            'Este personaje juega como ${personaje.posicion_natural}.'
-        );
-        return;
-    }   
-     const jugadorAnterior = equipo[ordenSeleccionado]?.personaje;
+        const jugadorAnterior = equipo[ordenSeleccionado]?.personaje;
 
-     setEquipo((actual)=>({
-        ...actual, 
-        [ordenSeleccionado]: {
-            equipo_id: null,
-            personaje_id: personaje.id_personaje, 
-            posicion: puesto.posicion, 
-            orden: puesto.orden,
-            personaje,
-        },
-     })); 
+        setEquipo((actual)=>({
+            ...actual, 
+            [ordenSeleccionado]: {
+                equipo_id: null,
+                personaje_id: personaje.id_personaje, 
+                posicion: puesto.posicion, 
+                orden: puesto.orden,
+                personaje,
+            },
+    })); 
 
  
 
@@ -177,7 +177,7 @@ return (
 
                 <Link href="/partido">Partido</Link>
                 <Link href="/ranking">Rankings</Link>
-                <Link href="perfil">Perfil</Link>
+                <Link href="/perfil">Perfil</Link>
             </nav>
         </header>
 
@@ -230,5 +230,14 @@ return (
         </section>
     </div>
 )
+}
 
+export default function EquipoPage(){
+    return (
+        <div>
+            <Suspense fallback={<p>Cargando equipo...</p>}>
+                <EquipoContenido/>
+            </Suspense>
+        </div>
+    )
 }

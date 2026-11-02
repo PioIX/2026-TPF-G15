@@ -7,7 +7,7 @@ export default function Modo({id_modo, titulo, subtitulo, descripcion}){
             <h5>{subtitulo}</h5>
             <p>{descripcion}</p>
 
-            <Link href='/equipo?id_modo=${id_modo}'>
+            <Link href={`/equipo?id_modo=${id_modo}`}>
                 <button>Jugar ahora</button>
             </Link>
         </div>

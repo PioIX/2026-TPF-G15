@@ -217,6 +217,12 @@
     font-size: 7px;
 }
 
+.ocupado{
+    background-color: #f5a623;
+    border-color: #ffd27a;
+    color: #172536;
+}
+
 .posicion span {
     margin-top: 2px;
     font-size: 6px;
