@@ -2,7 +2,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import "./PanelAdmin.module.css";
+import "./PanelAdmin.css";
 
 const API = "http://localhost:4000";
 

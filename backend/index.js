@@ -785,3 +785,35 @@ app.get("/modos/:id_modo/personajes", async (req, res) => {
         });
     }
 });
+
+/* =========================================================
+   RANKING DE JUGADORES
+   ========================================================= */
+
+app.get("/ranking", async (req, res) => {
+    try {
+        const ranking = await realizarQuery(
+            `SELECT
+                id_usuario,
+                nombre_usuario AS nombre,
+                COALESCE(partidas_ganadas, 0) * 100 AS puntos,
+                COALESCE(partidas_ganadas, 0) AS victorias,
+                COALESCE(partidas_jugadas, 0) AS partidas
+             FROM Usuarios_TPF
+             ORDER BY
+                puntos DESC,
+                victorias DESC,
+                partidas DESC,
+                nombre_usuario ASC`
+        );
+
+        res.json(ranking);
+
+    } catch (error) {
+        console.log("Error al obtener el ranking:", error);
+
+        res.status(500).json({
+            mensaje: "Error al obtener el ranking"
+        });
+    }
+});
