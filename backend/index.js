@@ -794,17 +794,71 @@ app.get("/ranking", async (req, res) => {
     try {
         const ranking = await realizarQuery(
             `SELECT
-                id_usuario,
-                nombre_usuario AS nombre,
-                COALESCE(partidas_ganadas, 0) * 100 AS puntos,
-                COALESCE(partidas_ganadas, 0) AS victorias,
-                COALESCE(partidas_jugadas, 0) AS partidas
-             FROM Usuarios_TPF
-             ORDER BY
-                puntos DESC,
-                victorias DESC,
-                partidas DESC,
-                nombre_usuario ASC`
+                u.id_usuario,
+                u.nombre_usuario AS nombre,
+
+                COALESCE(SUM(
+                    CASE
+                        WHEN (
+                            p.goles_local > p.goles_visitante
+                            AND p.ganador_penales IS NULL
+                            AND e.id_equipo = p.equipo_local_id
+                        ) OR (
+                            p.goles_visitante > p.goles_local
+                            AND p.ganador_penales IS NULL
+                            AND e.id_equipo = p.equipo_visitante_id
+                        ) OR (
+                            p.ganador_penales = 'local'
+                            AND e.id_equipo = p.equipo_local_id
+                        ) OR (
+                            p.ganador_penales = 'visitante'
+                            AND e.id_equipo = p.equipo_visitante_id
+                        )
+                        THEN 3
+                        ELSE 0
+                    END
+                ), 0) AS puntos,
+
+                COALESCE(SUM(
+                    CASE
+                        WHEN (
+                            (p.goles_local > p.goles_visitante
+                             AND p.ganador_penales IS NULL
+                             AND e.id_equipo = p.equipo_local_id)
+                            OR
+                            (p.goles_visitante > p.goles_local
+                             AND p.ganador_penales IS NULL
+                             AND e.id_equipo = p.equipo_visitante_id)
+                            OR
+                            (p.ganador_penales = 'local'
+                             AND e.id_equipo = p.equipo_local_id)
+                            OR
+                            (p.ganador_penales = 'visitante'
+                             AND e.id_equipo = p.equipo_visitante_id)
+                        )
+                        THEN 1
+                        ELSE 0
+                    END
+                ), 0) AS victorias,
+
+                COUNT(p.id_partida) AS partidas
+
+            FROM Usuarios_TPF u
+
+            LEFT JOIN Equipos e
+                ON e.id_usuario = u.id_usuario
+
+            LEFT JOIN Partidas p
+                ON (
+                    p.equipo_local_id = e.id_equipo
+                    OR p.equipo_visitante_id = e.id_equipo
+                )
+                AND p.estado = 'Finalizada'
+
+            GROUP BY u.id_usuario, u.nombre_usuario
+
+            ORDER BY puntos DESC, victorias DESC,
+                     partidas DESC, u.nombre_usuario ASC`
         );
 
         res.json(ranking);
@@ -814,6 +868,55 @@ app.get("/ranking", async (req, res) => {
 
         res.status(500).json({
             mensaje: "Error al obtener el ranking"
+        });
+    }
+});
+
+app.get("/estadisticas", async (req, res) => {
+    try {
+        // Comprobar que haya un usuario con sesión iniciada
+        if (!req.session.usuario) {
+            return res.status(401).json({
+                mensaje: "Debés iniciar sesión"
+            });
+        }
+
+        const idUsuario = req.session.usuario.id_usuario;
+
+        // Obtener las estadísticas del usuario
+        const usuarios = await realizarQuery(
+            `SELECT partidas_jugadas, partidas_ganadas
+             FROM Usuarios_TPF
+             WHERE id_usuario = ?`,
+            [idUsuario]
+        );
+
+        if (usuarios.length === 0) {
+            return res.status(404).json({
+                mensaje: "No se encontró el usuario"
+            });
+        }
+
+        const usuario = usuarios[0];
+
+        // Calcular el puesto según la cantidad de victorias
+        const resultadoRanking = await realizarQuery(
+            `SELECT COUNT(*) + 1 AS ranking
+             FROM Usuarios_TPF
+             WHERE partidas_ganadas > ?`,
+            [usuario.partidas_ganadas]
+        );
+
+        res.json({
+            victorias: usuario.partidas_ganadas,
+            partidasJugadas: usuario.partidas_jugadas,
+            ranking: resultadoRanking[0].ranking
+        });
+
+    } catch (error) {
+        console.log("Error al obtener las estadísticas:", error);
+        res.status(500).json({
+            mensaje: "Error al obtener las estadísticas"
         });
     }
 });

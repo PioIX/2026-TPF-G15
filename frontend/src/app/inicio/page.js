@@ -12,6 +12,8 @@ export default function InicioPage() {
     const [modo, setModo] = useState("");
     const [panelAbierto, setPanelAbierto] = useState(false);
     const [esAdmin, setEsAdmin] = useState(false);
+    const [estadisticas, setEstadisticas] = useState(null);
+    const [cargandoEstadisticas, setCargandoEstadisticas] = useState(true);
 
     useEffect(() => {
         async function comprobarAdmin() {
@@ -29,6 +31,36 @@ export default function InicioPage() {
 
         comprobarAdmin();
     }, []);
+
+useEffect(() => {
+    async function obtenerEstadisticas() {
+        console.log("Ejecutando obtenerEstadisticas...");
+
+        try {
+            const respuesta = await fetch("http://localhost:4000/estadisticas", {
+                credentials: "include"
+            });
+
+            console.log("Estado de respuesta:", respuesta.status);
+
+            if (!respuesta.ok) {
+                throw new Error("No se pudieron obtener las estadísticas");
+            }
+
+            const datos = await respuesta.json();
+            console.log("Estadísticas recibidas:", datos);
+
+            setEstadisticas(datos);
+
+        } catch (error) {
+            console.error("Error al obtener las estadísticas:", error);
+        } finally {
+            setCargandoEstadisticas(false);
+        }
+    }
+
+    obtenerEstadisticas();
+}, []);
 
     return (
         <main className={styles.inicio}>
@@ -60,9 +92,7 @@ export default function InicioPage() {
                 </Link>
             </nav>
             <header className={styles["inicio-encabezado"]}>
-                <span className={styles["inicio-etiqueta"]}>
-                    PROTOTIPO · DATOS FICTICIOS
-                </span>
+                <br />
 
                 <h2>Elegí tu desafío</h2>
 
@@ -103,30 +133,15 @@ export default function InicioPage() {
 
             <section className={styles["inicio-estadisticas"]}>
                 <div className={styles["inicio-estadisticas-encabezado"]}>
-                    <h3>Tu temporada · ejemplo</h3>
-                    <span>Estadísticas de demostración</span>
+                    <h3>Tu temporada </h3>
                 </div>
-
-                <EstadisticasTemporada
-                    estadisticas={{
-                        puntos: 100,
-                        victorias: 3,
-                        partidasJugadas: 5,
-                        ranking: 2
-                    }}
-                />
-            </section>
-
-            <section className={styles["inicio-descripcion"]}>
-                <h3>La visión del juego</h3>
-
-                <p>
-                    Este prototipo representa acceso de jugadores, juego
-                    individual y multijugador, partidos en tiempo real mediante
-                    WebSockets, puntaje, ranking, historial, catálogo de
-                    personajes y administración. Las funciones conectadas se
-                    muestran como demostración visual.
-                </p>
+                {cargandoEstadisticas ? (
+                    <p>Cargando estadísticas...</p>
+                ) : estadisticas ? (
+                    <EstadisticasTemporada estadisticas={estadisticas} />
+                ) : (
+                    <p>No se pudieron cargar las estadísticas.</p>
+                )}
             </section>
 
             <PanelAdmin
