@@ -1,0 +1,205 @@
+
+.contenedor {
+    min-height: 100vh;
+    padding: 50px 20px;
+    background: #101820;
+    color: white;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.encabezado {
+    text-align: center;
+    margin-bottom: 45px;
+}
+
+.encabezado p {
+    color: #4caf50;
+    font-weight: bold;
+    letter-spacing: 3px;
+}
+
+.encabezado h1 {
+    font-size: 38px;
+    margin: 10px 0;
+}
+
+.encabezado span {
+    color: #aaa;
+}
+
+.contenido {
+    width: 100%;
+    max-width: 850px;
+    text-align: center;
+}
+
+.contenido > h2 {
+    font-size: 30px;
+    margin-bottom: 10px;
+}
+
+.descripcion {
+    color: #aaa;
+    margin-bottom: 35px;
+}
+
+.instancia {
+    background: #1c2933;
+    border: 1px solid #34434d;
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 30px;
+}
+
+.instancia span {
+    color: #4caf50;
+    font-size: 13px;
+    font-weight: bold;
+    letter-spacing: 2px;
+}
+
+.instancia h2 {
+    margin-top: 8px;
+}
+
+.enfrentamiento,
+.sala {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 35px;
+    background: #1c2933;
+    padding: 35px 20px;
+    border-radius: 15px;
+    border: 1px solid #34434d;
+}
+
+.equipo,
+.jugador {
+    flex: 1;
+}
+
+.escudo {
+    width: 100px;
+    height: 100px;
+    border-radius: 50%;
+    background: #263d31;
+    border: 3px solid #4caf50;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    font-weight: bold;
+    margin: 0 auto 15px;
+}
+
+.equipo h3,
+.jugador h3 {
+    margin-bottom: 8px;
+}
+
+.equipo p {
+    color: #aaa;
+    font-size: 14px;
+}
+
+.vs {
+    font-size: 30px;
+    font-weight: bold;
+    color: #4caf50;
+}
+
+.aviso {
+    color: #aaa;
+    margin: 25px 0;
+    font-size: 14px;
+}
+
+.botonPrincipal,
+.botonSecundario {
+    border: none;
+    border-radius: 8px;
+    padding: 14px 30px;
+    font-size: 16px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: 0.2s;
+}
+
+.botonPrincipal {
+    background: #4caf50;
+    color: white;
+}
+
+.botonPrincipal:hover {
+    background: #3d9141;
+}
+
+.botonSecundario {
+    background: #34434d;
+    color: white;
+}
+
+.botonSecundario:hover {
+    background: #465965;
+}
+
+.conectado,
+.buscando {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+}
+
+.conectado {
+    color: #4caf50;
+}
+
+.buscando {
+    color: #e5c45b;
+}
+
+.punto,
+.puntoAnimado {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: #4caf50;
+}
+
+.puntoAnimado {
+    background: #e5c45b;
+    animation: parpadeo 1s infinite;
+}
+
+@keyframes parpadeo {
+    50% {
+        opacity: 0.2;
+    }
+}
+
+@media (max-width: 600px) {
+    .encabezado h1 {
+        font-size: 28px;
+    }
+
+    .enfrentamiento,
+    .sala {
+        gap: 12px;
+        padding: 25px 10px;
+    }
+
+    .escudo {
+        width: 75px;
+        height: 75px;
+        font-size: 18px;
+    }
+
+    .vs {
+        font-size: 22px;
+    }
+}
