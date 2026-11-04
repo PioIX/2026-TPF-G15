@@ -34,19 +34,52 @@ const formacionesIniciales = [
     }
 ]; 
 
-const posicionesIniciales = [
-    {orden: 1, posicion: "ARQ", x: 50, y: 90},
-    {orden: 2, posicion: "DEF", x: 17, y: 76},
-    {orden: 3, posicion: "DEF", x: 39, y: 79},
-    {orden: 4, posicion: "DEF", x: 61, y: 79},
-    {orden: 5, posicion: "DEF", x: 83, y: 76},
-    {orden: 6, posicion: "MED", x: 26, y: 57},
-    {orden: 7, posicion: "MED", x: 50, y: 62},
-    {orden: 8, posicion: "MED", x: 74, y: 57},
-    {orden: 9, posicion: "DEL", x: 21, y: 30},
-    {orden: 10, posicion: "DEL", x: 50, y: 24},
-    {orden: 11, posicion: "DEL", x: 79, y: 30},
-];
+function generarPosiciones(formacion,estrategia){
+    if (!formacion) return [];
+    const posiciones=[]
+
+    posiciones.push({
+        orden:1,
+        posicion: "ARQ",
+        x:50,
+        y:90,
+    });
+
+    const distribucion=[
+        {
+            posicion: "DEF",
+            cantidad: formacion.cant_defensores,
+            y: estrategia === "Defensiva"? 65: estrategia === "Ofensiva"? 79:65
+        },
+        {
+            posicion: "MED",
+            cantidad: formacion.cant_mediocampistas,
+            y: estrategia === "Defensiva" ? 43 : estrategia === "Ofensiva" ? 57 : 57
+        },
+        {
+            posicion: "DEL",
+            cantidad: formacion.cant_delanteros,
+            y: estrategia === "Defensiva" ? 23 : estrategia === "Ofensiva" ? 17 : 30
+        },
+    ];
+
+    let orden = 2;
+
+    distribucion.forEach((linea) =>{
+        for (i=0; i<linea.cantidad; i++){
+            const x= ((i+1)*100) / (linea.cantidad +1);
+
+            posiciones.push({
+                orden,
+                posicion: linea.posicion,
+                x,
+                y:linea.y
+            });
+            orden++;
+        }
+    });
+    return posiciones;
+};
 
 function EquipoContenido(){
     const [id_formacion, setIdFormacion] = useState(1);
@@ -61,6 +94,17 @@ function EquipoContenido(){
     const searchParams = useSearchParams();
 
     const id_modo = searchParams.get("id_modo"); 
+
+    const puesto = posicionesActuales.find(
+        (posicion) => posicion.orden === ordenSeleccionado
+    );
+
+    const posicionesActuales = generarPosiciones(
+        formacionSeleccionada,
+        estrategia
+    )
+
+    }
 
     useEffect(()=>{
         async function obtenerPersonajes(){
@@ -203,7 +247,7 @@ return (
                     />
 
                     <Cancha 
-                        posiciones={posicionesIniciales}
+                        posiciones={posicionesActuales}
                         equipo={equipo}
                         ordenSeleccionado={ordenSeleccionado}
                         onSeleccionarPosicion={setOrdenSeleccionado}
@@ -230,7 +274,7 @@ return (
         </section>
     </div>
 )
-}
+
 
 export default function EquipoPage(){
     return (
