@@ -49,7 +49,7 @@ function generarPosiciones(formacion,estrategia){
         {
             posicion: "DEF",
             cantidad: formacion.cant_defensores,
-            y: estrategia === "Defensiva"? 65: estrategia === "Ofensiva"? 79:65
+            y: estrategia === "Defensiva"? 65: estrategia === "Ofensiva"? 79:76
         },
         {
             posicion: "MED",
@@ -66,7 +66,7 @@ function generarPosiciones(formacion,estrategia){
     let orden = 2;
 
     distribucion.forEach((linea) =>{
-        for (i=0; i<linea.cantidad; i++){
+        for (let i=0; i<linea.cantidad; i++){
             const x= ((i+1)*100) / (linea.cantidad +1);
 
             posiciones.push({
@@ -102,9 +102,9 @@ function EquipoContenido(){
     const posicionesActuales = generarPosiciones(
         formacionSeleccionada,
         estrategia
-    )
+    );
 
-    }
+    
 
     useEffect(()=>{
         async function obtenerPersonajes(){
@@ -154,7 +154,7 @@ function EquipoContenido(){
         }
     
 
-        const puesto = posicionesIniciales.find(
+        const puesto = posicionesActuales.find(
             (posicion) => posicion.orden=== ordenSeleccionado
         )
 
@@ -186,7 +186,7 @@ function EquipoContenido(){
     });
 
     setOrdenSeleccionado(null);
-}
+    }
 
 function confirmarEquipo(){
     if (Object.keys(equipo).length !== 11){
@@ -274,7 +274,7 @@ return (
         </section>
     </div>
 )
-
+}
 
 export default function EquipoPage(){
     return (
