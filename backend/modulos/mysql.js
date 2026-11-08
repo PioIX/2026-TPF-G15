@@ -1,42 +1,45 @@
-const mysql = require("mysql2");
+const mysql = require("mysql2/promise");
 require("dotenv").config({ path: ".pio.env" });
 
-const conexion = mysql.createConnection({
+const conexion = mysql.createPool({
     host: process.env.MYSQL_HOST,
     user: process.env.MYSQL_USERNAME,
     password: process.env.MYSQL_PASSWORD,
-    database: process.env.MYSQL_DB
+    database: process.env.MYSQL_DB,
+    waitForConnections: true,
+    connectionLimit: 10,
+    queueLimit: 0
 });
 
-conexion.connect((error) => {
+// Ejecutar consultas normales
+async function realizarQuery(query, valores = []) {
+    const [resultado] = await conexion.query(query, valores);
+    return resultado;
+}
 
-    if (error) {
-        console.log("Error al conectar a MYSQL:");
-        console.log(error);
-    } else {
-        console.log("Conectado a MYSQL");
+// Ejecutar varias consultas dentro de una transacción
+async function realizarTransaccion(callback) {
+    const connection = await conexion.getConnection();
+
+    try {
+        await connection.beginTransaction();
+
+        const resultado = await callback(connection);
+
+        await connection.commit();
+
+        return resultado;
+
+    } catch (error) {
+        await connection.rollback();
+        throw error;
+
+    } finally {
+        connection.release();
     }
-
-});
-
-function realizarQuery(query, valores = []) {
-
-    return new Promise((resolve, reject) => {
-
-        conexion.query(query, valores, (error, resultado) => {
-
-            if (error) {
-                reject(error);
-            } else {
-                resolve(resultado);
-            }
-
-        });
-
-    });
-
 }
 
 module.exports = {
-    realizarQuery
+    realizarQuery,
+    realizarTransaccion
 };

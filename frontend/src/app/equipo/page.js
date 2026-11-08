@@ -240,34 +240,67 @@ function EquipoContenido() {
     }
 
     // Confirmar y continuar al prepartido.
-    function confirmarEquipo() {
-        if (Object.keys(equipo).length !== 11) {
-            alert("Debés asignar los 11 jugadores antes de confirmar.");
+    async function confirmarEquipo() {
+
+    if (Object.keys(equipo).length !== 11) {
+        alert("Tenés que completar los 11 puestos antes de continuar");
+        return;
+    }
+
+    const equipoPreparado = {
+        id_modo: Number(id_modo),
+        id_formacion: Number(id_formacion),
+        estrategia,
+        tipoPartida,
+        personajes: Object.values(equipo).map((puesto) => ({
+            personaje_id: puesto.personaje_id,
+            posicion: puesto.posicion,
+            orden: puesto.orden,
+        })),
+    };
+
+    try {
+
+        // Enviar el equipo al backend
+        const respuesta = await fetch("http://localhost:4000/equipos", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            credentials: "include",
+            body: JSON.stringify(equipoPreparado),
+        });
+
+        const datos = await respuesta.json();
+
+        // Comprobar si el backend respondió correctamente
+        if (!respuesta.ok) {
+            alert(datos.mensaje || "No se pudo crear el equipo");
             return;
         }
 
-        const equipoPreparado = {
-            id_modo: Number(id_modo),
-            id_formacion: Number(id_formacion),
-            estrategia,
-            tipoPartida,
-            personajes: Object.values(equipo).map((puesto) => ({
-                personaje_id: puesto.personaje_id,
-                posicion: puesto.posicion,
-                orden: puesto.orden,
-            })),
-        };
-
-        // Guardamos temporalmente el equipo hasta conectarlo con el backend.
+        // Guardar los datos para la página de prepartido
         sessionStorage.setItem(
             "equipoPendiente",
-            JSON.stringify(equipoPreparado)
+            JSON.stringify({
+                ...equipoPreparado,
+                id_equipo: datos.id_equipo,
+            })
         );
 
-        router.push(
-            `/prepartido?tipo=${tipoPartida}&modo=${id_modo}`
-        );
+        console.log("Equipo creado:", datos);
+
+        // Ir al prepartido
+        router.push(`/prepartido?tipo=${tipoPartida}&modo=${id_modo}`);
+
+    } catch (error) {
+
+        console.error("Error al crear el equipo:", error);
+
+        alert("No se pudo conectar con el servidor. Revisá que el backend esté funcionando.");
+
     }
+}
 
     return (
         <div className={styles.pagina}>
