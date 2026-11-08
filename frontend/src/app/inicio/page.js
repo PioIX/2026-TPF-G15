@@ -116,6 +116,7 @@ useEffect(() => {
             <section className={styles["inicio-modos"]}>
                 <div className={`${styles["inicio-modo"]} ${styles["inicio-modo-historia"]}`}>
                     <Modo
+                        id_modo={1}
                         titulo="Modo historia"
                         subtitulo="Próceres argentinos"
                         descripcion="Un equipo de figuras históricas imaginadas en la cancha."
@@ -124,6 +125,7 @@ useEffect(() => {
 
                 <div className={`${styles["inicio-modo"]} ${styles["inicio-modo-escuela"]}`}>
                     <Modo
+                        id_modo={2}
                         titulo="Modo escuela"
                         subtitulo="Profes del Pío IX"
                         descripcion="Un plantel ficticio inspirado en el espíritu del fútbol salesiano."

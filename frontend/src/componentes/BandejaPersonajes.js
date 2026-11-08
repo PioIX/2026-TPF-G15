@@ -1,18 +1,36 @@
-import Personaje from "./Personaje"
+
+import Personaje from "./Personaje";
 import styles from "@/app/equipo/equipo.module.css";
 
-export default function BandejaPersonajes ({personajes, onSeleccionarPersonaje}){
-    return(
+export default function BandejaPersonajes({
+    personajes,
+    onSeleccionarPersonaje,
+    cargando,
+    error
+}) {
+    return (
         <div className={styles.bandeja}>
             <h2>Bandeja de personajes</h2>
 
-            <p>Selecciona un personaje y luego elegi su posicion</p>
+            <p>Seleccioná un personaje para asignarlo a la posición elegida.</p>
 
-            <div className={styles.listaPersonajes}>
-                {personajes.map((personaje) => (
-                    <Personaje key={personaje.id_personaje} personaje={personaje} onClick={()=> onSeleccionarPersonaje(personaje)}/>
-                ))}
-            </div>
+            {cargando ? (
+                <p>Cargando personajes...</p>
+            ) : error ? (
+                <p>{error}</p>
+            ) : personajes.length === 0 ? (
+                <p>No hay personajes disponibles.</p>
+            ) : (
+                <div className={styles.listaPersonajes}>
+                    {personajes.map((personaje) => (
+                        <Personaje
+                            key={personaje.id_personaje}
+                            personaje={personaje}
+                            onClick={() => onSeleccionarPersonaje(personaje)}
+                        />
+                    ))}
+                </div>
+            )}
         </div>
-    )
+    );
 }
