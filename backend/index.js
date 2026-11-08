@@ -42,7 +42,7 @@ io.use((socket, next) => {
     sessionMiddleware(socket.request, {}, next);
 });
 
-const { realizarQuery } = require("./modulos/mysql");
+const { realizarQuery, realizarTransaccion } = require("./modulos/mysql");
 
 
 
@@ -787,6 +787,180 @@ app.get("/modos/:id_modo/personajes", async (req, res) => {
 });
 
 /* =========================================================
+   EQUIPOS: CREAR EQUIPO
+   ========================================================= */
+
+app.post("/equipos", async (req, res) => {
+    try {
+        // 1. Verificar que el usuario haya iniciado sesión
+        if (!req.session.usuario) {
+            return res.status(401).json({
+                mensaje: "Tenés que iniciar sesión para crear un equipo"
+            });
+        }
+
+        const id_usuario = req.session.usuario.id_usuario;
+
+        const {
+            id_modo,
+            id_formacion,
+            estrategia,
+            personajes
+        } = req.body;
+
+        // 2. Validar los datos generales
+        if (
+            !Number.isInteger(Number(id_modo)) ||
+            Number(id_modo) <= 0 ||
+            !Number.isInteger(Number(id_formacion)) ||
+            Number(id_formacion) <= 0 ||
+            typeof estrategia !== "string" ||
+            !estrategia.trim() ||
+            !Array.isArray(personajes) ||
+            personajes.length !== 11
+        ) {
+            return res.status(400).json({
+                mensaje: "Los datos del equipo son incorrectos"
+            });
+        }
+
+        // 3. Validar que no haya personajes repetidos
+        const idsPersonajes = personajes.map(p => Number(p.personaje_id));
+
+        if (
+            idsPersonajes.some(id => !Number.isInteger(id) || id <= 0) ||
+            new Set(idsPersonajes).size !== 11
+        ) {
+            return res.status(400).json({
+                mensaje: "El equipo debe tener 11 personajes diferentes"
+            });
+        }
+
+        // 4. Validar posiciones y orden
+        const posicionesValidas = ["ARQ", "DEF", "MED", "DEL"];
+
+        const datosValidos = personajes.every(p =>
+            posicionesValidas.includes(p.posicion) &&
+            Number.isInteger(Number(p.orden)) &&
+            Number(p.orden) >= 1 &&
+            Number(p.orden) <= 11
+        );
+
+        const ordenes = personajes.map(p => Number(p.orden));
+
+        if (
+            !datosValidos ||
+            new Set(ordenes).size !== 11 ||
+            !personajes.some(p => p.posicion === "ARQ")
+        ) {
+            return res.status(400).json({
+                mensaje: "Las posiciones u órdenes de los jugadores no son válidos"
+            });
+        }
+
+        // 5. Comprobar que la formación exista
+        const formaciones = await realizarQuery(
+            `SELECT *
+             FROM Formaciones
+             WHERE id_formacion = ?`,
+            [Number(id_formacion)]
+        );
+
+        if (formaciones.length === 0) {
+            return res.status(400).json({
+                mensaje: "La formación seleccionada no existe"
+            });
+        }
+
+        const formacion = formaciones[0];
+
+        // 6. Comprobar que las posiciones coincidan con la formación
+        const cantidadArqueros = personajes.filter(p => p.posicion === "ARQ").length;
+        const cantidadDefensores = personajes.filter(p => p.posicion === "DEF").length;
+        const cantidadMediocampistas = personajes.filter(p => p.posicion === "MED").length;
+        const cantidadDelanteros = personajes.filter(p => p.posicion === "DEL").length;
+
+        if (
+            cantidadArqueros !== 1 ||
+            cantidadDefensores !== formacion.cant_defensores ||
+            cantidadMediocampistas !== formacion.cant_mediocampistas ||
+            cantidadDelanteros !== formacion.cant_delanteros
+        ) {
+            return res.status(400).json({
+                mensaje: "Los jugadores no coinciden con la formación seleccionada"
+            });
+        }
+
+        // 7. Comprobar que los 11 personajes pertenezcan al modo elegido
+        const placeholders = idsPersonajes.map(() => "?").join(",");
+
+        const personajesExistentes = await realizarQuery(
+            `SELECT id_personaje
+             FROM Personajes
+             WHERE id_modo = ?
+             AND id_personaje IN (${placeholders})`,
+            [Number(id_modo), ...idsPersonajes]
+        );
+
+        if (personajesExistentes.length !== 11) {
+            return res.status(400).json({
+                mensaje: "Uno o más personajes no pertenecen al modo seleccionado"
+            });
+        }
+
+        // 8. Guardar el equipo y sus personajes en una transacción
+        const id_equipo = await realizarTransaccion(async (conexion) => {
+
+            // Crear el equipo
+            const [equipoCreado] = await conexion.execute(
+                `INSERT INTO Equipos
+                    (id_usuario, id_modo, id_formacion, estrategia, nombre)
+                 VALUES (?, ?, ?, ?, ?)`,
+                [
+                    id_usuario,
+                    Number(id_modo),
+                    Number(id_formacion),
+                    estrategia.trim(),
+                    `Equipo de ${req.session.usuario.nombre_usuario}`
+                ]
+            );
+
+            const nuevoIdEquipo = equipoCreado.insertId;
+
+            // Agregar los 11 personajes al equipo
+            for (const personaje of personajes) {
+                await conexion.execute(
+                    `INSERT INTO EquiposPersonajes
+                        (equipo_id, personaje_id, posicion, orden)
+                     VALUES (?, ?, ?, ?)`,
+                    [
+                        nuevoIdEquipo,
+                        Number(personaje.personaje_id),
+                        personaje.posicion,
+                        Number(personaje.orden)
+                    ]
+                );
+            }
+
+            return nuevoIdEquipo;
+        });
+
+        // 9. Responder al frontend
+        res.status(201).json({
+            mensaje: "Equipo creado correctamente",
+            id_equipo
+        });
+
+    } catch (error) {
+        console.log("Error al crear el equipo:", error);
+
+        res.status(500).json({
+            mensaje: "No se pudo crear el equipo"
+        });
+    }
+});
+
+/* =========================================================
    RANKING DE JUGADORES
    ========================================================= */
 
@@ -920,3 +1094,5 @@ app.get("/estadisticas", async (req, res) => {
         });
     }
 });
+
+
