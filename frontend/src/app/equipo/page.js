@@ -1,7 +1,8 @@
-"use client"
+
+"use client";
 
 import { useState, useEffect, Suspense } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 
 import styles from "./equipo.module.css";
@@ -10,135 +11,129 @@ import ConfiguracionEquipo from "@/componentes/ConfiguracionEquipo";
 import Cancha from "@/componentes/Cancha";
 import BandejaPersonajes from "@/componentes/BandejaPersonajes";
 
-const formacionesIniciales = [
-    {
-        id_formacion: 1,
-        nombre: "4-3-3", 
-        cant_defensores: 4,
-        cant_mediocampistas: 3,
-        cant_delanteros: 3,
-    },
-    {
-        id_formacion: 2, 
-        nombre: "4-4-2",
-        cant_defensores: 4,
-        cant_mediocampistas: 4, 
-        cant_delanteros: 2, 
-    }, 
-    {
-        id_formacion: 3,
-        nombre: "3-5-2", 
-        cant_defensores: 3,
-        cant_mediocampistas: 5, 
-        cant_delanteros: 2, 
-    }
-]; 
-
-function generarPosiciones(formacion,estrategia){
+function generarPosiciones(formacion, estrategia) {
     if (!formacion) return [];
-    const posiciones=[]
 
+    const posiciones = [];
+
+    // El arquero siempre ocupa la primera posición.
     posiciones.push({
-        orden:1,
+        orden: 1,
         posicion: "ARQ",
-        x:50,
-        y:90,
+        x: 50,
+        y: 90,
     });
 
-    const distribucion=[
+    const distribucion = [
         {
             posicion: "DEF",
-            cantidad: formacion.cant_defensores,
-            y: estrategia === "Defensiva"? 65: estrategia === "Ofensiva"? 79:76
+            cantidad: Number(formacion.cant_defensores),
+            y: estrategia === "Defensiva" ? 65 :
+                estrategia === "Ofensiva" ? 79 : 76
         },
         {
             posicion: "MED",
-            cantidad: formacion.cant_mediocampistas,
-            y: estrategia === "Defensiva" ? 43 : estrategia === "Ofensiva" ? 57 : 57
+            cantidad: Number(formacion.cant_mediocampistas),
+            y: estrategia === "Defensiva" ? 43 :
+                estrategia === "Ofensiva" ? 57 : 57
         },
         {
             posicion: "DEL",
-            cantidad: formacion.cant_delanteros,
-            y: estrategia === "Defensiva" ? 23 : estrategia === "Ofensiva" ? 17 : 30
+            cantidad: Number(formacion.cant_delanteros),
+            y: estrategia === "Defensiva" ? 23 :
+                estrategia === "Ofensiva" ? 17 : 30
         },
     ];
 
     let orden = 2;
 
-    distribucion.forEach((linea) =>{
-        for (let i=0; i<linea.cantidad; i++){
-            const x= ((i+1)*100) / (linea.cantidad +1);
+    distribucion.forEach((linea) => {
+        for (let i = 0; i < linea.cantidad; i++) {
+            const x = ((i + 1) * 100) / (linea.cantidad + 1);
 
             posiciones.push({
                 orden,
                 posicion: linea.posicion,
                 x,
-                y:linea.y
+                y: linea.y
             });
+
             orden++;
         }
     });
+
     return posiciones;
-};
+}
 
-function EquipoContenido(){
-    const [id_formacion, setIdFormacion] = useState(1);
-    const [estrategia, setEstrategia] = useState("Equilibrada");
-    const [tipoPartida, setTipoPartida] = useState("Individual"); 
-    const [equipo, setEquipo] = useState({});
-    const [ordenSeleccionado, setOrdenSeleccionado] = useState(null);
-    const [personajes,setPersonajes] = useState([]);
-    const [cargandoPersonajes,setCargandoPersonajes] = useState(true);
-    const [errorPersonajes,setErrorPersonajes] = useState(null);
-
+function EquipoContenido() {
+    const router = useRouter();
     const searchParams = useSearchParams();
 
-    const id_modo = searchParams.get("id_modo"); 
+    const id_modo = searchParams.get("id_modo");
 
-    const puesto = posicionesActuales.find(
-        (posicion) => posicion.orden === ordenSeleccionado
+    const [id_formacion, setIdFormacion] = useState("");
+    const [estrategia, setEstrategia] = useState("Equilibrada");
+    const [tipoPartida, setTipoPartida] = useState("individual");
+
+    const [equipo, setEquipo] = useState({});
+    const [ordenSeleccionado, setOrdenSeleccionado] = useState(null);
+
+    const [personajes, setPersonajes] = useState([]);
+    const [cargandoPersonajes, setCargandoPersonajes] = useState(true);
+    const [errorPersonajes, setErrorPersonajes] = useState(null);
+
+    const [formaciones, setFormaciones] = useState([]);
+    const [cargandoFormaciones, setCargandoFormaciones] = useState(true);
+    const [errorFormaciones, setErrorFormaciones] = useState(null);
+
+    // Buscamos la formación elegida.
+    const formacionSeleccionada = formaciones.find(
+        (formacion) => Number(formacion.id_formacion) === Number(id_formacion)
     );
 
+    // Generamos las posiciones según la formación y estrategia.
     const posicionesActuales = generarPosiciones(
         formacionSeleccionada,
         estrategia
     );
 
-    
-
-    useEffect(()=>{
-        async function obtenerPersonajes(){
-            if (!id_modo){
-                setErrorPersonajes("No se selecciono ningun modo");
+    // Cargar personajes del modo seleccionado.
+    useEffect(() => {
+        async function obtenerPersonajes() {
+            if (!id_modo) {
+                setErrorPersonajes("No se seleccionó ningún modo.");
                 setCargandoPersonajes(false);
                 setPersonajes([]);
                 return;
             }
 
-            try{ 
+            try {
                 setCargandoPersonajes(true);
                 setErrorPersonajes(null);
 
-                console.log("Id del modo: ", id_modo);
-                console.log("URL: ", `http://localhost:4000/modos/${id_modo}/personajes`)
-
                 const response = await fetch(
-                  `http://localhost:4000/modos/${id_modo}/personajes`
+                    `http://localhost:4000/modos/${id_modo}/personajes`
                 );
 
-                if (!response.ok){
-                    throw new Error ("No se pudieron obtener los personajes");
+                if (!response.ok) {
+                    throw new Error("No se pudieron obtener los personajes.");
                 }
 
                 const data = await response.json();
 
-                console.log("Personajes recibidos", data);
+                const listaPersonajes = Array.isArray(data)
+                    ? data
+                    : data.personajes;
 
-                setPersonajes(data);
+                if (!Array.isArray(listaPersonajes)) {
+                    throw new Error("El servidor devolvió un formato inesperado.");
+                }
 
-            } catch (error){
-                console.log("Error al obtener el personaje", error);
-                setErrorPersonajes("Ocurrio un error al cargar los personajes");
+                setPersonajes(listaPersonajes);
+
+            } catch (error) {
+                console.error("Error al obtener personajes:", error);
+                setErrorPersonajes(error.message);
             } finally {
                 setCargandoPersonajes(false);
             }
@@ -147,141 +142,231 @@ function EquipoContenido(){
         obtenerPersonajes();
     }, [id_modo]);
 
+    // Cargar formaciones desde la base de datos.
+    useEffect(() => {
+        async function obtenerFormaciones() {
+            try {
+                setCargandoFormaciones(true);
+                setErrorFormaciones(null);
+
+                const response = await fetch("http://localhost:4000/formaciones");
+
+                if (!response.ok) {
+                    throw new Error("No se pudieron obtener las formaciones.");
+                }
+
+                const data = await response.json();
+
+                if (!Array.isArray(data) || data.length === 0) {
+                    throw new Error("No hay formaciones cargadas en la base de datos.");
+                }
+
+                setFormaciones(data);
+
+                // Seleccionamos automáticamente la primera formación.
+                setIdFormacion(data[0].id_formacion);
+
+            } catch (error) {
+                console.error("Error al obtener las formaciones:", error);
+                setErrorFormaciones(error.message);
+            } finally {
+                setCargandoFormaciones(false);
+            }
+        }
+
+        obtenerFormaciones();
+    }, []);
+
+    // Cambiar de formación y liberar los jugadores asignados.
+    function cambiarFormacion(nuevoId) {
+        const personajesAsignados = Object.values(equipo).map(
+            (puesto) => puesto.personaje
+        );
+
+        setPersonajes((actuales) => {
+            const idsActuales = actuales.map((p) => p.id_personaje);
+
+            const personajesNuevos = personajesAsignados.filter(
+                (p) => !idsActuales.includes(p.id_personaje)
+            );
+
+            return [...actuales, ...personajesNuevos];
+        });
+
+        setEquipo({});
+        setOrdenSeleccionado(null);
+        setIdFormacion(nuevoId);
+    }
+
+    // Asignar un personaje a la posición seleccionada.
     function seleccionarPersonaje(personaje) {
-        if (ordenSeleccionado === null){
+        if (ordenSeleccionado === null) {
             alert("Primero seleccioná una posición en la cancha.");
             return;
         }
-    
 
         const puesto = posicionesActuales.find(
-            (posicion) => posicion.orden=== ordenSeleccionado
-        )
+            (posicion) => posicion.orden === ordenSeleccionado
+        );
+
+        if (!puesto) return;
 
         const jugadorAnterior = equipo[ordenSeleccionado]?.personaje;
 
-        setEquipo((actual)=>({
-            ...actual, 
+        setEquipo((actual) => ({
+            ...actual,
             [ordenSeleccionado]: {
                 equipo_id: null,
-                personaje_id: personaje.id_personaje, 
-                posicion: puesto.posicion, 
+                personaje_id: personaje.id_personaje,
+                posicion: puesto.posicion,
                 orden: puesto.orden,
-                personaje,
+                personaje: personaje,
             },
-    })); 
+        }));
 
- 
+        setPersonajes((actuales) => {
+            const disponibles = actuales.filter(
+                (p) => p.id_personaje !== personaje.id_personaje
+            );
 
-    setPersonajes((actuales) => {
-      const disponibles = actuales.filter(
-        (p) => p.id_personaje !== personaje.id_personaje
-      );
+            if (jugadorAnterior) {
+                disponibles.push(jugadorAnterior);
+            }
 
-      if (jugadorAnterior) {
-        disponibles.push(jugadorAnterior);
-      }
+            return disponibles;
+        });
 
-      return disponibles;
-    });
-
-    setOrdenSeleccionado(null);
+        setOrdenSeleccionado(null);
     }
 
-function confirmarEquipo(){
-    if (Object.keys(equipo).length !== 11){
-        alert ("Debes asignar los 11 jugadores antes de confirmar");
-        return;
+    // Confirmar y continuar al prepartido.
+    function confirmarEquipo() {
+        if (Object.keys(equipo).length !== 11) {
+            alert("Debés asignar los 11 jugadores antes de confirmar.");
+            return;
+        }
+
+        const equipoPreparado = {
+            id_modo: Number(id_modo),
+            id_formacion: Number(id_formacion),
+            estrategia,
+            tipoPartida,
+            personajes: Object.values(equipo).map((puesto) => ({
+                personaje_id: puesto.personaje_id,
+                posicion: puesto.posicion,
+                orden: puesto.orden,
+            })),
+        };
+
+        // Guardamos temporalmente el equipo hasta conectarlo con el backend.
+        sessionStorage.setItem(
+            "equipoPendiente",
+            JSON.stringify(equipoPreparado)
+        );
+
+        router.push(
+            `/prepartido?tipo=${tipoPartida}&modo=${id_modo}`
+        );
     }
 
-    alert("Equipo completo. La conexion con el backend esta pendiente"); 
-}
-
-return (
-    <div className={styles.pagina}>
-        <header className={styles.encabezado}>
-            <div className={styles.marca}>
-                <div className={styles.logo}>AFC</div>
-
-                <div>
-                    <h1>Argentina FC</h1>
-                    <p>Arma tu equipo</p>
-                </div>
-            </div>
-
-            <div className={styles.estado}>
-                Conectado
-            </div>
-
-            <nav className={styles.nav}>
-                <Link href="/inicio">Inicio</Link>
-                <span className={styles.activo}>
-                    Mi equipo
-                </span>
-
-                <Link href="/partido">Partido</Link>
-                <Link href="/ranking">Rankings</Link>
-                <Link href="/perfil">Perfil</Link>
-            </nav>
-        </header>
-
-        <section className={styles.contenido}>
-            <span className={styles.etiqueta}>CENTRO TACTICO</span>
-
-            <h2>Arma tu equipó</h2>
-
-            <p className={styles.introduccion}>
-                Desafío: {id_modo === "1" ? "Próceres argentinos" : "Profes del Pío IX"} - Elegí un personaje y luego elegí una posición.
-            </p>
-
-            <div className={styles.columnas}>
-                <section className={styles.panelEquipo}>
-                    <ConfiguracionEquipo 
-                        formaciones={formacionesIniciales} 
-                        id_formacion={id_formacion} 
-                        setIdFormacion={setIdFormacion}
-                        estrategia={estrategia}
-                        setEstrategia={setEstrategia}
-                        tipoPartida={tipoPartida}
-                        setTipoPartida={setTipoPartida}
-                    />
-
-                    <Cancha 
-                        posiciones={posicionesActuales}
-                        equipo={equipo}
-                        ordenSeleccionado={ordenSeleccionado}
-                        onSeleccionarPosicion={setOrdenSeleccionado}
-                    />
-
-                    <div className={styles.confirmacion}>
-                        <button onClick={confirmarEquipo}>
-                            Confirmar equipo
-                        </button>
-
-                        <span>
-                            {Object.keys(equipo).length} de 11 puestos ocupados
-                        </span>
-                    </div>
-                </section>
-
-                <BandejaPersonajes
-                    personajes={personajes}
-                    onSeleccionarPersonaje={seleccionarPersonaje}
-                    cargando={cargandoPersonajes}
-                    error={errorPersonajes}
-                />
-            </div>
-        </section>
-    </div>
-)
-}
-
-export default function EquipoPage(){
     return (
-        <div>
-            <Suspense fallback={<p>Cargando equipo...</p>}>
-                <EquipoContenido/>
-            </Suspense>
+        <div className={styles.pagina}>
+            <header className={styles.encabezado}>
+                <div className={styles.marca}>
+                    <div className={styles.logo}>AFC</div>
+
+                    <div>
+                        <h1>Argentina FC</h1>
+                        <p>Armá tu equipo</p>
+                    </div>
+                </div>
+
+                <div className={styles.estado}>
+                    Conectado
+                </div>
+
+                <nav className={styles.nav}>
+                    <Link href="/inicio">Inicio</Link>
+                    <span className={styles.activo}>Mi equipo</span>
+                    <Link href="/ranking">Rankings</Link>
+                    <Link href="/perfil">Perfil</Link>
+                </nav>
+            </header>
+
+            <section className={styles.contenido}>
+                <span className={styles.etiqueta}>CENTRO TÁCTICO</span>
+
+                <h2>Armá tu equipo</h2>
+
+                <p className={styles.introduccion}>
+                    Desafío: {
+                        id_modo === "1"
+                            ? "Próceres argentinos"
+                            : id_modo === "2"
+                                ? "Profes del Pío IX"
+                                : "Sin modo seleccionado"
+                    } - Elegí una posición en la cancha y después asignale un personaje.
+                </p>
+
+                <div className={styles.columnas}>
+                    <section className={styles.panelEquipo}>
+                        {cargandoFormaciones ? (
+                            <p>Cargando formaciones...</p>
+                        ) : errorFormaciones ? (
+                            <p>{errorFormaciones}</p>
+                        ) : (
+                            <ConfiguracionEquipo
+                                formaciones={formaciones}
+                                id_formacion={id_formacion}
+                                setIdFormacion={cambiarFormacion}
+                                estrategia={estrategia}
+                                setEstrategia={setEstrategia}
+                                tipoPartida={tipoPartida}
+                                setTipoPartida={setTipoPartida}
+                            />
+                        )}
+
+                        <Cancha
+                            posiciones={posicionesActuales}
+                            equipo={equipo}
+                            ordenSeleccionado={ordenSeleccionado}
+                            onSeleccionarPosicion={setOrdenSeleccionado}
+                        />
+
+                        <div className={styles.confirmacion}>
+                            <button
+                                onClick={confirmarEquipo}
+                                disabled={
+                                    cargandoFormaciones ||
+                                    !!errorFormaciones ||
+                                    !id_formacion
+                                }
+                            >
+                                Confirmar equipo
+                            </button>
+
+                            <span>
+                                {Object.keys(equipo).length} de 11 puestos ocupados
+                            </span>
+                        </div>
+                    </section>
+
+                    <BandejaPersonajes
+                        personajes={personajes}
+                        onSeleccionarPersonaje={seleccionarPersonaje}
+                        cargando={cargandoPersonajes}
+                        error={errorPersonajes}
+                    />
+                </div>
+            </section>
         </div>
-    )
+    );
+}
+
+export default function EquipoPage() {
+    return (
+        <Suspense fallback={<p>Cargando equipo...</p>}>
+            <EquipoContenido />
+        </Suspense>
+    );
 }
