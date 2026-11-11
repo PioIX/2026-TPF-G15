@@ -510,15 +510,31 @@ function PartidoContenido() {
         Semifinal: "Final"
     }[instanciaPartida];
 
-    function continuarTorneo() {
-        if (!siguienteInstancia || !equipoLocal?.id_equipo || !idModo) {
-            return;
-        }
+function continuarTorneo() {
+    console.log("Siguiente instancia:", siguienteInstancia);
+    console.log("Equipo local:", equipoLocal);
+    console.log("ID equipo:", equipoLocal?.id_equipo);
+    console.log("ID modo:", idModo);
 
-        router.push(
-            `/prepartido?tipo=individual&modo=${idModo}&instancia=${siguienteInstancia}&id_equipo=${equipoLocal.id_equipo}`
-        );
+    if (!siguienteInstancia) {
+        alert("No se encontró la siguiente instancia.");
+        return;
     }
+
+    if (!equipoLocal?.id_equipo) {
+        alert("No se encontró el ID del equipo.");
+        return;
+    }
+
+    if (!idModo) {
+        alert("No se encontró el ID del modo.");
+        return;
+    }
+
+    router.push(
+        `/prepartido?tipo=individual&modo=${idModo}&instancia=${siguienteInstancia}&id_equipo=${equipoLocal.id_equipo}`
+    );
+}
 
     function volverAlInicio() {
         router.push("/inicio");

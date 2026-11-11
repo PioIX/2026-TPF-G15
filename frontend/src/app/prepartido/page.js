@@ -20,6 +20,10 @@ function PrepartidoContenido() {
     const tipo = searchParams.get("tipo");
     const modo = searchParams.get("modo");
 
+    // Datos para continuar el torneo
+    const instancia = searchParams.get("instancia") || "Octavos";
+    const idEquipoParam = searchParams.get("id_equipo");
+
     const [cargando, setCargando] = useState(false);
     const [partida, setPartida] = useState(null);
     const [error, setError] = useState("");
@@ -37,6 +41,13 @@ function PrepartidoContenido() {
                 ? "Profesores del Pío IX"
                 : "Modo de juego";
 
+    const nombreInstancia = {
+        Octavos: "Octavos de final",
+        Cuartos: "Cuartos de final",
+        Semifinal: "Semifinal",
+        Final: "Final"
+    }[instancia] || "Instancia del torneo";
+
     useEffect(() => {
         if (!esIndividual || solicitudIniciada.current) {
             return;
@@ -49,17 +60,22 @@ function PrepartidoContenido() {
                 setCargando(true);
                 setError("");
 
-                // Recuperar el equipo que se guardó en la página Equipo.
+                // Recuperar el equipo de la URL o de sessionStorage.
                 const equipoGuardado = sessionStorage.getItem("equipoPendiente");
 
-                if (!equipoGuardado) {
-                    throw new Error("No se encontró el equipo que preparaste. Volvé a armarlo.");
-                }
+                const equipo = equipoGuardado
+                    ? JSON.parse(equipoGuardado)
+                    : null;
 
-                const equipo = JSON.parse(equipoGuardado);
+                // Si viene por URL, tiene prioridad.
+                const idEquipo = idEquipoParam
+                    ? Number(idEquipoParam)
+                    : equipo?.id_equipo;
 
-                if (!equipo.id_equipo || !modo) {
-                    throw new Error("Faltan datos del equipo o del modo de juego.");
+                if (!idEquipo || !modo) {
+                    throw new Error(
+                        "Faltan datos del equipo o del modo de juego."
+                    );
                 }
 
                 // Pedirle al backend que genere el BOT y cree la partida.
@@ -72,8 +88,9 @@ function PrepartidoContenido() {
                         },
                         credentials: "include",
                         body: JSON.stringify({
-                            id_equipo: equipo.id_equipo,
-                            id_modo: Number(modo)
+                            id_equipo: idEquipo,
+                            id_modo: Number(modo),
+                            instancia: instancia
                         })
                     }
                 );
@@ -81,7 +98,9 @@ function PrepartidoContenido() {
                 const datos = await respuesta.json();
 
                 if (!respuesta.ok) {
-                    throw new Error(datos.mensaje || "No se pudo crear la partida.");
+                    throw new Error(
+                        datos.mensaje || "No se pudo crear la partida."
+                    );
                 }
 
                 // Guardar los datos recibidos para mostrarlos en pantalla.
@@ -96,7 +115,7 @@ function PrepartidoContenido() {
         }
 
         crearPartida();
-    }, [esIndividual, modo]);
+    }, [esIndividual, modo, instancia, idEquipoParam]);
 
     function comenzarPartido() {
         if (!partida?.id_partida) {
@@ -130,7 +149,7 @@ function PrepartidoContenido() {
 
             {esIndividual && (
                 <section className={styles.contenido}>
-                    <h2>¡Comienza el torneo!</h2>
+                    <h2>¡Continúa el torneo!</h2>
 
                     <p className={styles.descripcion}>
                         Enfrentate a diferentes equipos y convertite en campeón.
@@ -138,11 +157,13 @@ function PrepartidoContenido() {
 
                     <div className={styles.instancia}>
                         <span>TORNEO INDIVIDUAL</span>
-                        <h2>Octavos de final</h2>
+                        <h2>{nombreInstancia}</h2>
                     </div>
 
                     {cargando && (
-                        <p>Estamos preparando tu partido y generando al rival...</p>
+                        <p>
+                            Estamos preparando tu partido y generando al rival...
+                        </p>
                     )}
 
                     {error && (

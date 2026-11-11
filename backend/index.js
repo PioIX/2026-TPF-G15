@@ -843,6 +843,127 @@ app.get("/modos/:id_modo/personajes", async (req, res) => {
 });
 
 /* =========================================================
+   CONSULTAR TORNEO PENDIENTE
+   ========================================================= */
+
+app.get("/torneo/pendiente/:id_modo", async (req, res) => {
+    try {
+        if (!req.session.usuario) {
+            return res.status(401).json({
+                mensaje: "Debés iniciar sesión."
+            });
+        }
+
+        const idUsuario = req.session.usuario.id_usuario;
+        const idModo = Number(req.params.id_modo);
+
+        if (![1, 2].includes(idModo)) {
+            return res.status(400).json({
+                mensaje: "Modo inválido."
+            });
+        }
+
+        // Buscar la última partida individual del usuario en ese modo.
+        const partidas = await realizarQuery(
+            `SELECT
+                p.id_partida,
+                p.estado,
+                p.goles_local,
+                p.goles_visitante,
+                p.instancia,
+                p.ganador_penales,
+                e.id_equipo,
+                e.id_modo
+            FROM Partidas p
+            INNER JOIN Equipos e
+                ON p.equipo_local_id = e.id_equipo
+            WHERE e.id_usuario = ?
+              AND e.id_modo = ?
+              AND p.tipo = 0
+            ORDER BY p.id_partida DESC
+            LIMIT 1`,
+            [idUsuario, idModo]
+        );
+
+        // No tiene ninguna partida de torneo.
+        if (partidas.length === 0) {
+            return res.json({
+                pendiente: false
+            });
+        }
+
+        const partida = partidas[0];
+
+        // Si todavía está jugando, volver a esa misma partida.
+        if (
+            partida.estado === "En curso" ||
+            partida.estado === "Simulando"
+        ) {
+            return res.json({
+                pendiente: true,
+                accion: "partido",
+                id_partida: partida.id_partida
+            });
+        }
+
+        // Si todavía no finalizó, no se puede avanzar.
+        if (partida.estado !== "Finalizada") {
+            return res.json({
+                pendiente: false
+            });
+        }
+
+        // Comprobar si ganó la instancia.
+        const gano =
+            partida.goles_local > partida.goles_visitante ||
+            (
+                partida.goles_local === partida.goles_visitante &&
+                partida.ganador_penales === "local"
+            );
+
+        // Si perdió, no puede continuar ese torneo.
+        if (!gano) {
+            return res.json({
+                pendiente: false
+            });
+        }
+
+        // Determinar la siguiente instancia.
+        const siguientesInstancias = {
+            Octavos: "Cuartos",
+            Cuartos: "Semifinal",
+            Semifinal: "Final"
+        };
+
+        const siguienteInstancia =
+            siguientesInstancias[partida.instancia];
+
+        // Si ganó la Final, completó el torneo.
+        if (!siguienteInstancia) {
+            return res.json({
+                pendiente: false,
+                completado: true
+            });
+        }
+
+        return res.json({
+            pendiente: true,
+            accion: "prepartido",
+            id_equipo: partida.id_equipo,
+            id_modo: partida.id_modo,
+            instancia: siguienteInstancia
+        });
+
+    } catch (error) {
+        console.error("Error al consultar torneo pendiente:", error);
+
+        return res.status(500).json({
+            mensaje: "Error al consultar el torneo pendiente."
+        });
+    }
+});
+
+/* =========================================================
    EQUIPOS: CREAR EQUIPO
    ========================================================= */
 
@@ -1390,6 +1511,7 @@ app.get("/partidas/:id_partida", async (req, res) => {
                 el.id_equipo AS id_equipo_local,
                 el.id_usuario AS usuario_local,
                 el.nombre AS nombre_local,
+                el.id_modo AS id_modo_local,
                 el.estrategia AS estrategia_local,
                 fl.nombre AS formacion_local,
 
@@ -1507,6 +1629,7 @@ app.get("/partidas/:id_partida", async (req, res) => {
             goles_local: partida.goles_local,
             goles_visitante: partida.goles_visitante,
             ganador_penales: partida.ganador_penales,
+            id_modo: partida.id_modo_local,
 
             equipo_local: {
                 id_equipo: partida.id_equipo_local,
