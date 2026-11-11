@@ -1,10 +1,19 @@
+
 "use client";
 
 import { useSearchParams, useRouter } from "next/navigation";
-import { useState, useEffect, useRef } from "react";
+import { Suspense, useState, useEffect, useRef } from "react";
 import styles from "./prepartido.module.css";
 
 export default function PrepartidoPage() {
+    return (
+        <Suspense fallback={<p>Cargando prepartido...</p>}>
+            <PrepartidoContenido />
+        </Suspense>
+    );
+}
+
+function PrepartidoContenido() {
     const searchParams = useSearchParams();
     const router = useRouter();
 

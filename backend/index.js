@@ -1032,14 +1032,25 @@ app.post("/partidas/individual", async (req, res) => {
         const id_usuario = req.session.usuario.id_usuario;
         const id_equipo = Number(req.body.id_equipo);
         const id_modo = Number(req.body.id_modo);
+        const instancia = req.body.instancia || "Octavos";
+
+        const instanciasValidas = [
+            "Octavos",
+            "Cuartos",
+            "Semifinal",
+            "Final"
+        ];
+
+        const indiceInstancia = instanciasValidas.indexOf(instancia);
 
         // 2. Validar los datos recibidos
         if (
             !Number.isInteger(id_equipo) || id_equipo <= 0 ||
-            !Number.isInteger(id_modo) || id_modo <= 0
+            !Number.isInteger(id_modo) || id_modo <= 0 ||
+            indiceInstancia === -1
         ) {
             return res.status(400).json({
-                mensaje: "Los datos del equipo o del modo no son válidos"
+                mensaje: "Los datos del equipo, del modo o de la instancia no son válidos"
             });
         }
 
@@ -1073,49 +1084,107 @@ app.post("/partidas/individual", async (req, res) => {
 
         const equipoUsuario = equipos[0];
 
+        // 4. Comprobar que el equipo pertenezca al modo seleccionado
         if (Number(equipoUsuario.id_modo) !== id_modo) {
             return res.status(400).json({
                 mensaje: "El equipo no pertenece al modo seleccionado"
             });
         }
-        // 4. Comprobar si el usuario ya tiene una partida de Octavos en curso
+
+        // 5. Comprobar que haya ganado la instancia anterior
+        if (instancia !== "Octavos") {
+
+            const instanciaAnterior = instanciasValidas[indiceInstancia - 1];
+
+            const partidasAnteriores = await realizarQuery(
+                `SELECT
+                    estado,
+                    goles_local,
+                    goles_visitante,
+                    ganador_penales
+                 FROM Partidas
+                 WHERE equipo_local_id = ?
+                   AND tipo = 0
+                   AND instancia = ?
+                 ORDER BY id_partida DESC
+                 LIMIT 1`,
+                [id_equipo, instanciaAnterior]
+            );
+
+            if (
+                partidasAnteriores.length === 0 ||
+                partidasAnteriores[0].estado !== "Finalizada"
+            ) {
+                return res.status(409).json({
+                    mensaje: "Todavía no completaste la instancia anterior."
+                });
+            }
+
+            const anterior = partidasAnteriores[0];
+
+            const ganoAnterior =
+                Number(anterior.goles_local) > Number(anterior.goles_visitante) ||
+                (
+                    Number(anterior.goles_local) === Number(anterior.goles_visitante) &&
+                    anterior.ganador_penales === "local"
+                );
+
+            if (!ganoAnterior) {
+                return res.status(403).json({
+                    mensaje: "No clasificaste a la siguiente instancia."
+                });
+            }
+        }
+
+        // 6. Comprobar si ya existe una partida de esta instancia
         const partidasExistentes = await realizarQuery(
             `SELECT
-        p.id_partida,
-        p.instancia,
-        eu.id_equipo,
-        eu.nombre AS nombre_equipo_usuario,
-        eb.id_equipo AS id_equipo_bot,
-        eb.nombre AS nombre_equipo_bot
-     FROM Partidas p
-     INNER JOIN Equipos eu
-        ON p.equipo_local_id = eu.id_equipo
-     INNER JOIN Equipos eb
-        ON p.equipo_visitante_id = eb.id_equipo
-     WHERE p.equipo_local_id = ?
-       AND p.tipo = 0
-       AND p.estado = 'En curso'
-       AND p.instancia = 'Octavos'
-     ORDER BY p.id_partida DESC
-     LIMIT 1`,
-            [id_equipo]
+                p.id_partida,
+                p.instancia,
+                p.estado,
+                eu.id_equipo,
+                eu.nombre AS nombre_equipo_usuario,
+                eb.id_equipo AS id_equipo_bot,
+                eb.nombre AS nombre_equipo_bot
+             FROM Partidas p
+             INNER JOIN Equipos eu
+                ON p.equipo_local_id = eu.id_equipo
+             INNER JOIN Equipos eb
+                ON p.equipo_visitante_id = eb.id_equipo
+             WHERE p.equipo_local_id = ?
+               AND p.tipo = 0
+               AND p.instancia = ?
+             ORDER BY p.id_partida DESC
+             LIMIT 1`,
+            [id_equipo, instancia]
         );
 
         if (partidasExistentes.length > 0) {
+
             const partidaExistente = partidasExistentes[0];
 
-            // Recuperar los personajes del BOT que ya fue creado.
+            // Si ya terminó, no permitimos volver a jugar la misma instancia
+            if (
+                partidaExistente.estado !== "En curso" &&
+                partidaExistente.estado !== "Simulando"
+            ) {
+                return res.status(409).json({
+                    mensaje: "Ya disputaste esta instancia del torneo."
+                });
+            }
+
+            // Recuperar los personajes del equipo BOT existente
             const personajesExistentes = await realizarQuery(
                 `SELECT
-            p.id_personaje,
-            p.nombre,
-            ep.posicion,
-            ep.orden
-         FROM EquiposPersonajes ep
-         INNER JOIN Personajes p
-            ON ep.personaje_id = p.id_personaje
-         WHERE ep.equipo_id = ?
-         ORDER BY ep.orden`,
+                    p.id_personaje,
+                    p.nombre,
+                    ep.posicion,
+                    ep.orden
+                 FROM EquiposPersonajes ep
+                 INNER JOIN Personajes p
+                    ON ep.personaje_id = p.id_personaje
+                 WHERE ep.equipo_id = ?
+                 ORDER BY ep.orden`,
                 [partidaExistente.id_equipo_bot]
             );
 
@@ -1123,10 +1192,12 @@ app.post("/partidas/individual", async (req, res) => {
                 mensaje: "Se recuperó la partida individual existente",
                 id_partida: partidaExistente.id_partida,
                 instancia: partidaExistente.instancia,
+
                 equipo_usuario: {
                     id_equipo: partidaExistente.id_equipo,
                     nombre: partidaExistente.nombre_equipo_usuario
                 },
+
                 equipo_bot: {
                     id_equipo: partidaExistente.id_equipo_bot,
                     nombre: partidaExistente.nombre_equipo_bot,
@@ -1135,11 +1206,11 @@ app.post("/partidas/individual", async (req, res) => {
             });
         }
 
-        // 5. Comprobar que exista el usuario reservado para los bots
+        // 7. Comprobar que exista el usuario reservado para los bots
         const bots = await realizarQuery(
             `SELECT id_usuario
              FROM Usuarios_TPF
-             WHERE id_usuario = 5`,
+             WHERE id_usuario = 5`
         );
 
         if (bots.length === 0) {
@@ -1148,7 +1219,7 @@ app.post("/partidas/individual", async (req, res) => {
             });
         }
 
-        // 6. Elegir 11 personajes aleatorios del mismo modo
+        // 8. Elegir 11 personajes aleatorios del mismo modo
         const personajesBot = await realizarQuery(
             `SELECT
                 id_personaje,
@@ -1171,7 +1242,7 @@ app.post("/partidas/individual", async (req, res) => {
             });
         }
 
-        // 7. Armar las posiciones según la formación del usuario
+        // 9. Armar las posiciones según la formación del usuario
         const posicionesBot = [
             "ARQ",
             ...Array(equipoUsuario.cant_defensores).fill("DEF"),
@@ -1185,7 +1256,7 @@ app.post("/partidas/individual", async (req, res) => {
             });
         }
 
-        // 8. Crear el equipo BOT y la partida en una transacción
+        // 10. Crear el equipo BOT y la partida en una transacción
         const resultado = await realizarTransaccion(async (conexion) => {
 
             // Crear el equipo rival
@@ -1240,7 +1311,7 @@ app.post("/partidas/individual", async (req, res) => {
                     "En curso",
                     0,
                     0,
-                    "Octavos",
+                    instancia,
                     null
                 ]
             );
@@ -1251,15 +1322,17 @@ app.post("/partidas/individual", async (req, res) => {
             };
         });
 
-        // 9. Responder al frontend
+        // 11. Responder al frontend
         res.status(201).json({
             mensaje: "Partida individual creada correctamente",
             id_partida: resultado.id_partida,
-            instancia: "Octavos",
+            instancia: instancia,
+
             equipo_usuario: {
                 id_equipo: equipoUsuario.id_equipo,
                 nombre: equipoUsuario.nombre
             },
+
             equipo_bot: {
                 id_equipo: resultado.id_equipo_bot,
                 nombre: `Bot - ${equipoUsuario.nombre_modo}`,
@@ -2268,52 +2341,116 @@ app.get("/ranking", async (req, res) => {
 
 app.get("/estadisticas", async (req, res) => {
     try {
-        // Comprobar que haya un usuario con sesión iniciada
         if (!req.session.usuario) {
             return res.status(401).json({
-                mensaje: "Debés iniciar sesión"
+                mensaje: "No estás autenticado."
             });
         }
 
         const idUsuario = req.session.usuario.id_usuario;
 
-        // Obtener las estadísticas del usuario
-        const usuarios = await realizarQuery(
-            `SELECT partidas_jugadas, partidas_ganadas
-             FROM Usuarios_TPF
-             WHERE id_usuario = ?`,
-            [idUsuario]
+        // Obtenemos el ranking utilizando exactamente
+        // los mismos criterios que la página de ranking.
+        const ranking = await realizarQuery(`
+            SELECT
+                u.id_usuario,
+                u.nombre_usuario AS nombre,
+
+                COALESCE(SUM(
+                    CASE
+                        WHEN (
+                            (p.goles_local > p.goles_visitante
+                                AND p.equipo_local_id = e.id_equipo)
+                            OR
+                            (p.goles_visitante > p.goles_local
+                                AND p.equipo_visitante_id = e.id_equipo)
+                            OR
+                            (p.goles_local = p.goles_visitante
+                                AND p.ganador_penales = 'local'
+                                AND p.equipo_local_id = e.id_equipo)
+                            OR
+                            (p.goles_local = p.goles_visitante
+                                AND p.ganador_penales = 'visitante'
+                                AND p.equipo_visitante_id = e.id_equipo)
+                        )
+                        THEN 3
+                        ELSE 0
+                    END
+                ), 0) AS puntos,
+
+                COALESCE(SUM(
+                    CASE
+                        WHEN (
+                            (p.goles_local > p.goles_visitante
+                                AND p.equipo_local_id = e.id_equipo)
+                            OR
+                            (p.goles_visitante > p.goles_local
+                                AND p.equipo_visitante_id = e.id_equipo)
+                            OR
+                            (p.goles_local = p.goles_visitante
+                                AND p.ganador_penales = 'local'
+                                AND p.equipo_local_id = e.id_equipo)
+                            OR
+                            (p.goles_local = p.goles_visitante
+                                AND p.ganador_penales = 'visitante'
+                                AND p.equipo_visitante_id = e.id_equipo)
+                        )
+                        THEN 1
+                        ELSE 0
+                    END
+                ), 0) AS victorias,
+
+                COUNT(p.id_partida) AS partidas
+
+            FROM Usuarios_TPF u
+
+            LEFT JOIN Equipos e
+                ON e.id_usuario = u.id_usuario
+
+            LEFT JOIN Partidas p
+                ON (
+                    p.equipo_local_id = e.id_equipo
+                    OR p.equipo_visitante_id = e.id_equipo
+                )
+                AND p.estado = 'Finalizada'
+
+            WHERE u.id_usuario <> 5
+
+            GROUP BY u.id_usuario, u.nombre_usuario
+
+            ORDER BY
+                puntos DESC,
+                victorias DESC,
+                partidas ASC,
+                u.nombre_usuario ASC
+        `);
+
+        // Buscamos la posición del usuario dentro del ranking.
+        const posicion = ranking.findIndex(
+            usuario => Number(usuario.id_usuario) === Number(idUsuario)
         );
 
-        if (usuarios.length === 0) {
+        if (posicion === -1) {
             return res.status(404).json({
-                mensaje: "No se encontró el usuario"
+                mensaje: "No se encontró al usuario en el ranking."
             });
         }
 
-        const usuario = usuarios[0];
-
-        // Calcular el puesto según la cantidad de victorias
-        const resultadoRanking = await realizarQuery(
-            `SELECT COUNT(*) + 1 AS ranking
-             FROM Usuarios_TPF
-             WHERE partidas_ganadas > ?`,
-            [usuario.partidas_ganadas]
-        );
+        const usuario = ranking[posicion];
 
         res.json({
-            puntos: usuario.partidas_ganadas * 3,
-            victorias: usuario.partidas_ganadas,
-            partidasJugadas: usuario.partidas_jugadas,
-            ranking: resultadoRanking[0].ranking
+            puntos: Number(usuario.puntos),
+            victorias: Number(usuario.victorias),
+            partidasJugadas: Number(usuario.partidas),
+            ranking: posicion + 1
         });
 
     } catch (error) {
-        console.log("Error al obtener las estadísticas:", error);
+        console.error("Error al obtener estadísticas:", error);
+
         res.status(500).json({
-            mensaje: "Error al obtener las estadísticas"
+            mensaje: "Error al obtener las estadísticas."
         });
     }
 });
-
 

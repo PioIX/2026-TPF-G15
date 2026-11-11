@@ -2,12 +2,12 @@
 "use client";
 
 import { Suspense, useEffect, useRef, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import { io } from "socket.io-client";
 import styles from "./partido.module.css";
 
 export default function PartidoPage() {
-        return (
+    return (
         <Suspense fallback={<p>Cargando partido...</p>}>
             <PartidoContenido />
         </Suspense>
@@ -15,11 +15,17 @@ export default function PartidoPage() {
 }
 
 function PartidoContenido() {
+    const router = useRouter();
     const searchParams = useSearchParams();
     const idPartida = searchParams.get("id_partida");
 
+    const [tipoPartida, setTipoPartida] = useState(null);
+    const [instanciaPartida, setInstanciaPartida] = useState("");
+    const [idModo, setIdModo] = useState(null);
+
     const [equipoLocal, setEquipoLocal] = useState(null);
     const [equipoVisitante, setEquipoVisitante] = useState(null);
+
 
     const [cargando, setCargando] = useState(true);
     const [error, setError] = useState("");
@@ -84,6 +90,9 @@ function PartidoContenido() {
 
                 setEquipoLocal(datos.equipo_local);
                 setEquipoVisitante(datos.equipo_visitante);
+                setTipoPartida(Number(datos.tipo));
+                setInstanciaPartida(datos.instancia);
+                setIdModo(Number(datos.id_modo));
 
                 setGolesLocal(Number(datos.goles_local) || 0);
                 setGolesVisitante(Number(datos.goles_visitante) || 0);
@@ -238,7 +247,7 @@ function PartidoContenido() {
                     } else {
                         setGanador(
                             Number(datos.goles_local) >
-                            Number(datos.goles_visitante)
+                                Number(datos.goles_visitante)
                                 ? "local"
                                 : "visitante"
                         );
@@ -495,6 +504,26 @@ function PartidoContenido() {
             ? equipoLocal.nombre
             : equipoVisitante.nombre;
 
+    const siguienteInstancia = {
+        Octavos: "Cuartos",
+        Cuartos: "Semifinal",
+        Semifinal: "Final"
+    }[instanciaPartida];
+
+    function continuarTorneo() {
+        if (!siguienteInstancia || !equipoLocal?.id_equipo || !idModo) {
+            return;
+        }
+
+        router.push(
+            `/prepartido?tipo=individual&modo=${idModo}&instancia=${siguienteInstancia}&id_equipo=${equipoLocal.id_equipo}`
+        );
+    }
+
+    function volverAlInicio() {
+        router.push("/inicio");
+    }
+
     return (
         <main className={styles.pagina}>
             <header className={styles.encabezado}>
@@ -542,73 +571,72 @@ function PartidoContenido() {
             {(fase === "penales" ||
                 fase === "mataMata" ||
                 (fase === "final" && huboTanda)) && (
-                <section className={styles.panelDefinicionPenales}>
-                    <h2>
-                        {fase === "mataMata"
-                            ? "¡Definición por mata-mata!"
-                            : "Definición por penales"}
-                    </h2>
+                    <section className={styles.panelDefinicionPenales}>
+                        <h2>
+                            {fase === "mataMata"
+                                ? "¡Definición por mata-mata!"
+                                : "Definición por penales"}
+                        </h2>
 
-                    <p className={styles.resultadoTanda}>
-                        {golesPenalesLocal} - {golesPenalesVisitante}
-                    </p>
+                        <p className={styles.resultadoTanda}>
+                            {golesPenalesLocal} - {golesPenalesVisitante}
+                        </p>
 
-                    {[
-                        {
-                            nombre: equipoLocal.nombre,
-                            penales: penalesLocal,
-                        },
-                        {
-                            nombre: equipoVisitante.nombre,
-                            penales: penalesVisitante,
-                        },
-                    ].map((equipo, indice) => {
-                        const cantidadCasilleros = Math.max(
-                            5,
-                            penalesLocal.length,
-                            penalesVisitante.length
-                        );
+                        {[
+                            {
+                                nombre: equipoLocal.nombre,
+                                penales: penalesLocal,
+                            },
+                            {
+                                nombre: equipoVisitante.nombre,
+                                penales: penalesVisitante,
+                            },
+                        ].map((equipo, indice) => {
+                            const cantidadCasilleros = Math.max(
+                                5,
+                                penalesLocal.length,
+                                penalesVisitante.length
+                            );
 
-                        return (
-                            <div
-                                className={styles.filaTandaPenales}
-                                key={indice}
-                            >
-                                <span className={styles.nombreTandaPenales}>
-                                    {equipo.nombre}
-                                </span>
+                            return (
+                                <div
+                                    className={styles.filaTandaPenales}
+                                    key={indice}
+                                >
+                                    <span className={styles.nombreTandaPenales}>
+                                        {equipo.nombre}
+                                    </span>
 
-                                <div className={styles.casillerosTanda}>
-                                    {Array.from({
-                                        length: cantidadCasilleros,
-                                    }).map((_, i) => {
-                                        const resultado = equipo.penales[i];
+                                    <div className={styles.casillerosTanda}>
+                                        {Array.from({
+                                            length: cantidadCasilleros,
+                                        }).map((_, i) => {
+                                            const resultado = equipo.penales[i];
 
-                                        return (
-                                            <div
-                                                key={i}
-                                                className={`${styles.casilleroTanda} ${
-                                                    resultado === true
+                                            return (
+                                                <div
+                                                    key={i}
+                                                    className={`${styles.casilleroTanda} ${resultado === true
                                                         ? styles.penalConvertido
                                                         : resultado === false
                                                             ? styles.penalFallado
                                                             : ""
-                                                }`}
-                                            >
-                                                {resultado === true
-                                                    ? "⚽"
-                                                    : resultado === false
-                                                        ? "❌"
-                                                        : "◯"}
-                                            </div>
-                                        );
-                                    })}
+                                                        }`}
+                                                >
+                                                    {resultado === true
+                                                        ? "⚽"
+                                                        : resultado === false
+                                                            ? "❌"
+                                                            : "◯"}
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
                                 </div>
-                            </div>
-                        );
-                    })}
-                </section>
-            )}
+                            );
+                        })}
+                    </section>
+                )}
 
             <section className={styles.contenido}>
                 <div className={styles.alineaciones}>
@@ -668,10 +696,10 @@ function PartidoContenido() {
                                                     jugador,
                                                     identificador
                                                 ) && (
-                                                    <span title="Tarjeta amarilla">
-                                                        🟨
-                                                    </span>
-                                                )}
+                                                        <span title="Tarjeta amarilla">
+                                                            🟨
+                                                        </span>
+                                                    )}
 
                                                 <span className={styles.posicion}>
                                                     {jugador.posicion}
@@ -707,11 +735,10 @@ function PartidoContenido() {
                                         evento.id_evento ||
                                         `${evento.minuto}-${indice}`
                                     }
-                                    className={`${styles.evento} ${
-                                        evento.tipo === "gol"
-                                            ? styles.eventoGol
-                                            : ""
-                                    }`}
+                                    className={`${styles.evento} ${evento.tipo === "gol"
+                                        ? styles.eventoGol
+                                        : ""
+                                        }`}
                                 >
                                     <span className={styles.minutoEvento}>
                                         {evento.minuto}'
@@ -759,6 +786,68 @@ function PartidoContenido() {
                                     ? ` por penales (${golesPenalesLocal}-${golesPenalesVisitante})`
                                     : ""}
                             </p>
+
+                            {tipoPartida === 0 && (
+                                <>
+                                    {ganador === "local" && siguienteInstancia && (
+                                        <>
+                                            <h3>¡Felicitaciones! Clasificaste.</h3>
+
+                                            <p>
+                                                Tu próximo desafío será:
+                                                {" "}{siguienteInstancia}.
+                                            </p>
+
+                                            <button
+                                                className={styles.botonFinal}
+                                                onClick={continuarTorneo}
+                                            >
+                                                Continuar torneo
+                                            </button>
+                                        </>
+                                    )}
+
+                                    {ganador !== "local" && (
+                                        <>
+                                            <h3>¡Fin del torneo!</h3>
+
+                                            <p>
+                                                Tu equipo quedó eliminado.
+                                                ¡Volvé a intentarlo!
+                                            </p>
+
+                                            <button
+                                                className={styles.botonFinal}
+                                                onClick={volverAlInicio}
+                                            >
+                                                Volver al inicio
+                                            </button>
+                                        </>
+                                    )}
+
+                                    {ganador === "local" && instanciaPartida === "Final" && (
+                                        <>
+                                            <h3>¡Sos el campeón de Argentina FC!</h3>
+
+                                            <button
+                                                className={styles.botonFinal}
+                                                onClick={volverAlInicio}
+                                            >
+                                                Volver al inicio
+                                            </button>
+                                        </>
+                                    )}
+                                </>
+                            )}
+
+                            {tipoPartida === 1 && (
+                                <button
+                                    className={styles.botonFinal}
+                                    onClick={volverAlInicio}
+                                >
+                                    Volver al inicio
+                                </button>
+                            )}
                         </div>
                     )}
                 </aside>
