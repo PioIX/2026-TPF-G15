@@ -1,8 +1,7 @@
-
 "use client";
 
 import { useSearchParams, useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import styles from "./prepartido.module.css";
 
 export default function PrepartidoPage() {
@@ -12,7 +11,12 @@ export default function PrepartidoPage() {
     const tipo = searchParams.get("tipo");
     const modo = searchParams.get("modo");
 
-    const [buscandoRival, setBuscandoRival] = useState(true);
+    const [cargando, setCargando] = useState(false);
+    const [partida, setPartida] = useState(null);
+    const [error, setError] = useState("");
+
+    // Evita que React ejecute dos veces la creación durante las pruebas.
+    const solicitudIniciada = useRef(false);
 
     const esIndividual = tipo === "individual";
     const esMultijugador = tipo === "multijugador";
@@ -24,13 +28,77 @@ export default function PrepartidoPage() {
                 ? "Profesores del Pío IX"
                 : "Modo de juego";
 
+    useEffect(() => {
+        if (!esIndividual || solicitudIniciada.current) {
+            return;
+        }
+
+        solicitudIniciada.current = true;
+
+        async function crearPartida() {
+            try {
+                setCargando(true);
+                setError("");
+
+                // Recuperar el equipo que se guardó en la página Equipo.
+                const equipoGuardado = sessionStorage.getItem("equipoPendiente");
+
+                if (!equipoGuardado) {
+                    throw new Error("No se encontró el equipo que preparaste. Volvé a armarlo.");
+                }
+
+                const equipo = JSON.parse(equipoGuardado);
+
+                if (!equipo.id_equipo || !modo) {
+                    throw new Error("Faltan datos del equipo o del modo de juego.");
+                }
+
+                // Pedirle al backend que genere el BOT y cree la partida.
+                const respuesta = await fetch(
+                    "http://localhost:4000/partidas/individual",
+                    {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json"
+                        },
+                        credentials: "include",
+                        body: JSON.stringify({
+                            id_equipo: equipo.id_equipo,
+                            id_modo: Number(modo)
+                        })
+                    }
+                );
+
+                const datos = await respuesta.json();
+
+                if (!respuesta.ok) {
+                    throw new Error(datos.mensaje || "No se pudo crear la partida.");
+                }
+
+                // Guardar los datos recibidos para mostrarlos en pantalla.
+                setPartida(datos);
+
+            } catch (error) {
+                console.error("Error al preparar la partida:", error);
+                setError(error.message);
+            } finally {
+                setCargando(false);
+            }
+        }
+
+        crearPartida();
+    }, [esIndividual, modo]);
+
     function comenzarPartido() {
-        // Más adelante enviaremos el identificador de la partida.
-        router.push("/partido");
+        if (!partida?.id_partida) {
+            return;
+        }
+
+        router.push(`/partido?id_partida=${partida.id_partida}`);
     }
 
     function cancelar() {
-        router.push("/equipo");
+        router.push("/");
     }
 
     if (!esIndividual && !esMultijugador) {
@@ -38,7 +106,7 @@ export default function PrepartidoPage() {
             <main className={styles.contenedor}>
                 <h1>Preparación del partido</h1>
                 <p>No se especificó una modalidad válida.</p>
-                <button onClick={cancelar}>Volver a armar equipo</button>
+                <button onClick={cancelar}>Volver al inicio</button>
             </main>
         );
     }
@@ -54,6 +122,7 @@ export default function PrepartidoPage() {
             {esIndividual && (
                 <section className={styles.contenido}>
                     <h2>¡Comienza el torneo!</h2>
+
                     <p className={styles.descripcion}>
                         Enfrentate a diferentes equipos y convertite en campeón.
                     </p>
@@ -63,39 +132,57 @@ export default function PrepartidoPage() {
                         <h2>Octavos de final</h2>
                     </div>
 
-                    <div className={styles.enfrentamiento}>
-                        <article className={styles.equipo}>
-                            <div className={styles.escudo}>TU</div>
-                            <h3>Tu equipo</h3>
-                            <p>Equipo del usuario</p>
-                        </article>
+                    {cargando && (
+                        <p>Estamos preparando tu partido y generando al rival...</p>
+                    )}
 
-                        <div className={styles.vs}>VS</div>
+                    {error && (
+                        <div>
+                            <p>{error}</p>
+                            <button onClick={cancelar}>
+                                Volver al inicio
+                            </button>
+                        </div>
+                    )}
 
-                        <article className={styles.equipo}>
-                            <div className={styles.escudo}>BOT</div>
-                            <h3>Equipo rival</h3>
-                            <p>Rival generado por la máquina</p>
-                        </article>
-                    </div>
+                    {partida && (
+                        <>
+                            <div className={styles.enfrentamiento}>
+                                <article className={styles.equipo}>
+                                    <div className={styles.escudo}>TU</div>
+                                    <h3>{partida.equipo_usuario.nombre}</h3>
+                                    <p>Tu equipo</p>
+                                </article>
 
-                    <p className={styles.aviso}>
-                        El equipo rival será generado automáticamente según el
-                        modo que hayas elegido.
-                    </p>
+                                <div className={styles.vs}>VS</div>
 
-                    <button
-                        className={styles.botonPrincipal}
-                        onClick={comenzarPartido}
-                    >
-                        Comenzar partido
-                    </button>
+                                <article className={styles.equipo}>
+                                    <div className={styles.escudo}>BOT</div>
+                                    <h3>{partida.equipo_bot.nombre}</h3>
+                                    <p>Rival generado por la máquina</p>
+                                </article>
+                            </div>
+
+                            <p className={styles.aviso}>
+                                Tu rival fue generado automáticamente con personajes
+                                del modo {nombreModo}.
+                            </p>
+
+                            <button
+                                className={styles.botonPrincipal}
+                                onClick={comenzarPartido}
+                            >
+                                Comenzar partido
+                            </button>
+                        </>
+                    )}
                 </section>
             )}
 
             {esMultijugador && (
                 <section className={styles.contenido}>
                     <h2>Buscando contrincante</h2>
+
                     <p className={styles.descripcion}>
                         Estamos buscando otro jugador que quiera competir
                         en el mismo modo.

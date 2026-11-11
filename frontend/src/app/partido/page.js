@@ -1,54 +1,29 @@
 
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { io } from "socket.io-client";
 import styles from "./partido.module.css";
 
-const equipoLocal = {
-    nombre: "ARGENTINA FC",
-    formacion: "4-3-3",
-    jugadores: [
-        { numero: 1, nombre: "Manuel Belgrano", posicion: "ARQ" },
-        { numero: 4, nombre: "José de San Martín", posicion: "DEF" },
-        { numero: 2, nombre: "Martín Miguel de Güemes", posicion: "DEF" },
-        { numero: 6, nombre: "Juan Manuel de Rosas", posicion: "DEF" },
-        { numero: 3, nombre: "Manuel Dorrego", posicion: "DEF" },
-        { numero: 5, nombre: "Mariano Moreno", posicion: "MED" },
-        { numero: 8, nombre: "Domingo F. Sarmiento", posicion: "MED" },
-        { numero: 10, nombre: "Juan B. Alberdi", posicion: "MED" },
-        { numero: 7, nombre: "José Artigas", posicion: "DEL" },
-        { numero: 9, nombre: "Cornelio Saavedra", posicion: "DEL" },
-        { numero: 11, nombre: "Juan José Castelli", posicion: "DEL" },
-    ],
-};
-
-const equipoVisitante = {
-    nombre: "RIVALES FC",
-    formacion: "4-4-2",
-    jugadores: [
-        { numero: 1, nombre: "Jugador visitante 1", posicion: "ARQ" },
-        { numero: 2, nombre: "Jugador visitante 2", posicion: "DEF" },
-        { numero: 3, nombre: "Jugador visitante 3", posicion: "DEF" },
-        { numero: 4, nombre: "Jugador visitante 4", posicion: "DEF" },
-        { numero: 5, nombre: "Jugador visitante 5", posicion: "DEF" },
-        { numero: 6, nombre: "Jugador visitante 6", posicion: "MED" },
-        { numero: 7, nombre: "Jugador visitante 7", posicion: "MED" },
-        { numero: 8, nombre: "Jugador visitante 8", posicion: "MED" },
-        { numero: 10, nombre: "Jugador visitante 10", posicion: "MED" },
-        { numero: 9, nombre: "Jugador visitante 9", posicion: "DEL" },
-        { numero: 11, nombre: "Jugador visitante 11", posicion: "DEL" },
-    ],
-};
-
-const eventosAtaque = [
-    "¡Gran jugada colectiva! El equipo avanza al área rival.",
-    "¡Remate al arco! El arquero responde y evita el gol.",
-    "El equipo recupera la pelota y sale de contraataque.",
-    "¡Peligro en el área! La defensa logra despejar la pelota.",
-    "El equipo intenta una combinación ofensiva, pero pierde la pelota.",
-];
-
 export default function PartidoPage() {
+        return (
+        <Suspense fallback={<p>Cargando partido...</p>}>
+            <PartidoContenido />
+        </Suspense>
+    );
+}
+
+function PartidoContenido() {
+    const searchParams = useSearchParams();
+    const idPartida = searchParams.get("id_partida");
+
+    const [equipoLocal, setEquipoLocal] = useState(null);
+    const [equipoVisitante, setEquipoVisitante] = useState(null);
+
+    const [cargando, setCargando] = useState(true);
+    const [error, setError] = useState("");
+
     const [minuto, setMinuto] = useState(0);
     const [golesLocal, setGolesLocal] = useState(0);
     const [golesVisitante, setGolesVisitante] = useState(0);
@@ -56,461 +31,421 @@ export default function PartidoPage() {
     const [goleadores, setGoleadores] = useState([]);
     const [amonestados, setAmonestados] = useState([]);
 
-    // Fases: partido, definicion, penales, mataMata y final.
     const [fase, setFase] = useState("partido");
     const [ganador, setGanador] = useState("");
 
-    // Cada elemento es true si se convirtió y false si se falló.
     const [penalesLocal, setPenalesLocal] = useState([]);
     const [penalesVisitante, setPenalesVisitante] = useState([]);
 
-    // Evita generar dos eventos para el mismo minuto.
-    const ultimoMinutoProcesado = useRef(0);
+    // Referencia para consultar la fase actual desde Socket.IO.
+    const faseActual = useRef("partido");
 
     const golesPenalesLocal = penalesLocal.filter(Boolean).length;
     const golesPenalesVisitante = penalesVisitante.filter(Boolean).length;
 
-    const huboTanda = penalesLocal.length > 0 ||
-        penalesVisitante.length > 0;
+    const huboTanda =
+        penalesLocal.length > 0 || penalesVisitante.length > 0;
 
-    // Hace avanzar el reloj durante los 90 minutos.
     useEffect(() => {
-        if (fase !== "partido") return;
-
-        const intervalo = setInterval(() => {
-            setMinuto((actual) => Math.min(actual + 5, 90));
-        }, 1500);
-
-        return () => clearInterval(intervalo);
+        faseActual.current = fase;
     }, [fase]);
 
-    // Al llegar al minuto 90, decide si hace falta una tanda.
+    // Carga los datos, recupera eventos y conecta Socket.IO.
     useEffect(() => {
-        if (minuto < 90 || fase !== "partido") return;
+        let socket;
+        let componenteActivo = true;
 
-        setFase("definicion");
-    }, [minuto, fase]);
+        async function cargarPartido() {
+            if (!idPartida) {
+                setError("No se recibió el identificador de la partida.");
+                setCargando(false);
+                return;
+            }
 
-    // Registra un gol durante el partido.
-    function registrarGol(jugador, local, descripcion, tipoGol = "normal") {
-        const equipo = local ? "local" : "visitante";
-        const nombreEquipo = local
-            ? equipoLocal.nombre
-            : equipoVisitante.nombre;
+            try {
+                // 1. Obtener la partida y los equipos.
+                const respuesta = await fetch(
+                    `http://localhost:4000/partidas/${idPartida}`,
+                    {
+                        method: "GET",
+                        credentials: "include",
+                    }
+                );
 
-        if (local) {
-            setGolesLocal((goles) => goles + 1);
-        } else {
-            setGolesVisitante((goles) => goles + 1);
-        }
+                const datos = await respuesta.json();
 
-        setGoleadores((anteriores) => [
-            ...anteriores,
-            {
-                nombre: jugador.nombre,
-                numero: jugador.numero,
-                equipo,
-                tipo: tipoGol,
-            },
-        ]);
+                if (!respuesta.ok) {
+                    throw new Error(
+                        datos.mensaje || "No se pudo cargar la partida."
+                    );
+                }
 
-        setEventos((anteriores) => [
-            {
-                minuto,
-                tipo: "gol",
-                tipoGol,
-                descripcion,
-                nombreEquipo,
-            },
-            ...anteriores,
-        ]);
-    }
+                if (!componenteActivo) return;
 
-    // Elige un delantero del equipo indicado.
-    function elegirDelantero(local) {
-        const jugadores = local
-            ? equipoLocal.jugadores
-            : equipoVisitante.jugadores;
+                setEquipoLocal(datos.equipo_local);
+                setEquipoVisitante(datos.equipo_visitante);
 
-        const delanteros = jugadores.filter(
-            (jugador) => jugador.posicion === "DEL"
-        );
+                setGolesLocal(Number(datos.goles_local) || 0);
+                setGolesVisitante(Number(datos.goles_visitante) || 0);
 
-        return delanteros[
-            Math.floor(Math.random() * delanteros.length)
-        ];
-    }
+                // 2. Obtener los eventos que ya están guardados.
+                const respuestaEventos = await fetch(
+                    `http://localhost:4000/partidas/${idPartida}/eventos`,
+                    {
+                        method: "GET",
+                        credentials: "include",
+                    }
+                );
 
-    // Genera los eventos de los 90 minutos.
-    useEffect(() => {
-        if (
-            minuto === 0 ||
-            fase !== "partido" ||
-            ultimoMinutoProcesado.current === minuto
-        ) {
-            return;
-        }
+                const datosEventos = await respuestaEventos.json();
 
-        ultimoMinutoProcesado.current = minuto;
+                if (!respuestaEventos.ok) {
+                    throw new Error(
+                        datosEventos.mensaje ||
+                        "No se pudieron recuperar los eventos."
+                    );
+                }
 
-        const local = Math.random() < 0.5;
-        const nombreEquipo = local
-            ? equipoLocal.nombre
-            : equipoVisitante.nombre;
+                if (!componenteActivo) return;
 
-        // Gol durante una jugada normal.
-        if (Math.random() < 0.15) {
-            const jugador = elegirDelantero(local);
-
-            registrarGol(
-                jugador,
-                local,
-                `¡GOOOL de ${jugador.nombre}!`
-            );
-
-            return;
-        }
-
-        const azar = Math.random() * 100;
-
-        // Ataques.
-        if (azar < 35) {
-            const descripcion =
-                eventosAtaque[
-                Math.floor(Math.random() * eventosAtaque.length)
-                ];
-
-            setEventos((anteriores) => [
-                {
-                    minuto,
-                    tipo: "ataque",
-                    descripcion,
-                    nombreEquipo,
-                },
-                ...anteriores,
-            ]);
-
-            return;
-        }
-
-        // Tarjetas amarillas: una como máximo por jugador.
-        if (azar < 52) {
-            const equipo = local ? "local" : "visitante";
-            const jugadores = local
-                ? equipoLocal.jugadores
-                : equipoVisitante.jugadores;
-
-            const jugadoresSinAmarilla = jugadores.filter(
-                (jugador) =>
-                    !amonestados.some(
-                        (amonestado) =>
-                            amonestado.nombre === jugador.nombre &&
-                            amonestado.numero === jugador.numero &&
-                            amonestado.equipo === equipo
-                    )
-            );
-
-            if (jugadoresSinAmarilla.length > 0) {
-                const jugador =
-                    jugadoresSinAmarilla[
-                    Math.floor(
-                        Math.random() * jugadoresSinAmarilla.length
-                    )
+                // Identifica al jugador mencionado en la descripción.
+                function buscarJugador(descripcion) {
+                    const jugadores = [
+                        ...datos.equipo_local.jugadores.map(jugador => ({
+                            ...jugador,
+                            equipo: "local",
+                        })),
+                        ...datos.equipo_visitante.jugadores.map(jugador => ({
+                            ...jugador,
+                            equipo: "visitante",
+                        })),
                     ];
 
-                setAmonestados((anteriores) => [
-                    ...anteriores,
-                    {
-                        nombre: jugador.nombre,
-                        numero: jugador.numero,
-                        equipo,
-                    },
-                ]);
+                    return jugadores.find(jugador =>
+                        descripcion.includes(jugador.nombre)
+                    ) || null;
+                }
 
-                setEventos((anteriores) => [
-                    {
-                        minuto,
-                        tipo: "tarjeta",
-                        descripcion: `Tarjeta amarilla para ${jugador.nombre} por una infracción.`,
+                // Convierte los eventos de MySQL al formato de la pantalla.
+                function convertirEvento(evento) {
+                    const descripcion = evento.descripcion || "";
+                    const tipoBD = evento.tipo_evento;
+
+                    let tipo = "ataque";
+                    let tipoGol = "normal";
+
+                    if (tipoBD.startsWith("GOL")) {
+                        tipo = "gol";
+
+                        if (tipoBD === "GOL_PENAL") {
+                            tipoGol = "penal";
+                        } else if (
+                            tipoBD === "GOL_TIRO_LIBRE" ||
+                            tipoBD === "GOL_TIROLIBRE_CABEZA"
+                        ) {
+                            tipoGol = "tiroLibre";
+                        }
+                    } else if (tipoBD === "TARJETA") {
+                        tipo = "tarjeta";
+                    } else if (tipoBD === "CORNER") {
+                        tipo = "corner";
+                    } else if (tipoBD === "TIRO_LIBRE") {
+                        tipo = "tiroLibre";
+                    } else if (tipoBD === "PENAL_FALLADO") {
+                        tipo = "penal";
+                    }
+
+                    const jugador = buscarJugador(descripcion);
+
+                    let nombreEquipo = evento.equipo || null;
+
+                    if (!nombreEquipo && jugador) {
+                        nombreEquipo =
+                            jugador.equipo === "local"
+                                ? datos.equipo_local.nombre
+                                : datos.equipo_visitante.nombre;
+                    }
+
+                    if (!nombreEquipo) {
+                        if (descripcion.includes(datos.equipo_local.nombre)) {
+                            nombreEquipo = datos.equipo_local.nombre;
+                        } else if (
+                            descripcion.includes(datos.equipo_visitante.nombre)
+                        ) {
+                            nombreEquipo = datos.equipo_visitante.nombre;
+                        }
+                    }
+
+                    return {
+                        id_evento: evento.id_evento,
+                        minuto: Number(evento.minuto),
+                        tipo,
+                        tipoGol,
+                        tipo_evento: tipoBD,
+                        descripcion,
                         nombreEquipo,
-                    },
-                    ...anteriores,
-                ]);
-            } else {
-                setEventos((anteriores) => [
-                    {
-                        minuto,
-                        tipo: "ataque",
-                        descripcion:
-                            "El árbitro deja seguir el juego. El equipo recupera la pelota.",
-                        nombreEquipo,
-                    },
-                    ...anteriores,
-                ]);
-            }
+                        jugador,
+                    };
+                }
 
-            return;
-        }
+                const eventosRecuperados = datosEventos
+                    .map(convertirEvento)
+                    .sort((a, b) => a.minuto - b.minuto);
 
-        // Córners.
-        if (azar < 72) {
-            setEventos((anteriores) => [
-                {
-                    minuto,
-                    tipo: "corner",
-                    descripcion: `¡Tiro de esquina para ${nombreEquipo}! El equipo prepara el centro al área.`,
-                    nombreEquipo,
-                },
-                ...anteriores,
-            ]);
+                setEventos([...eventosRecuperados].reverse());
 
-            return;
-        }
+                if (eventosRecuperados.length > 0) {
+                    setMinuto(
+                        Math.max(
+                            ...eventosRecuperados.map(evento => evento.minuto)
+                        )
+                    );
+                }
 
-        // Tiros libres.
-        if (azar < 93) {
-            const resultadoTiroLibre = Math.random();
-
-            if (resultadoTiroLibre < 0.20) {
-                const jugador = elegirDelantero(local);
-
-                registrarGol(
-                    jugador,
-                    local,
-                    `¡GOOOL de ${jugador.nombre}! ¡Golazo de tiro libre directo!`,
-                    "tiroLibre"
+                // Recuperar goleadores.
+                setGoleadores(
+                    eventosRecuperados
+                        .filter(evento =>
+                            evento.tipo === "gol" && evento.jugador
+                        )
+                        .map(evento => ({
+                            nombre: evento.jugador.nombre,
+                            numero: evento.jugador.numero,
+                            equipo: evento.jugador.equipo,
+                            tipo: evento.tipoGol,
+                        }))
                 );
 
-                return;
-            }
-
-            if (resultadoTiroLibre < 0.5) {
-                setEventos((anteriores) => [
-                    {
-                        minuto,
-                        tipo: "tiroLibre",
-                        descripcion:
-                            `Tiro libre para ${nombreEquipo}. El centro llega al área, pero nadie logra conectar el cabezazo.`,
-                        nombreEquipo,
-                    },
-                    ...anteriores,
-                ]);
-
-                return;
-            }
-
-            if (resultadoTiroLibre < 0.55) {
-                const jugador = elegirDelantero(local);
-
-                registrarGol(
-                    jugador,
-                    local,
-                    `¡GOOOL de ${jugador.nombre}! Gran centro de tiro libre y cabezazo a la red.`,
-                    "tiroLibre"
+                // Recuperar tarjetas.
+                setAmonestados(
+                    eventosRecuperados
+                        .filter(evento =>
+                            evento.tipo === "tarjeta" && evento.jugador
+                        )
+                        .map(evento => ({
+                            nombre: evento.jugador.nombre,
+                            numero: evento.jugador.numero,
+                            equipo: evento.jugador.equipo,
+                        }))
                 );
 
-                return;
+                // Si la partida ya terminó, mostrar el resultado.
+                if (datos.estado === "Finalizada") {
+                    setFase("final");
+
+                    if (datos.ganador_penales) {
+                        setGanador(datos.ganador_penales);
+                    } else {
+                        setGanador(
+                            Number(datos.goles_local) >
+                            Number(datos.goles_visitante)
+                                ? "local"
+                                : "visitante"
+                        );
+                    }
+                }
+
+                // 3. Conectarse a Socket.IO.
+                socket = io("http://localhost:4000", {
+                    withCredentials: true,
+                });
+
+                socket.on("connect", () => {
+                    socket.emit("unirsePartida", {
+                        id_partida: Number(idPartida),
+                    });
+                });
+
+                socket.on("connect_error", error => {
+                    console.error("Error de conexión Socket.IO:", error);
+                    setError("No se pudo conectar con el servidor del partido.");
+                });
+
+                // El backend confirma que ingresamos a la sala.
+                socket.on("partidaConectada", async () => {
+                    // Solo iniciamos si todavía está en curso.
+                    if (datos.estado === "En curso") {
+                        try {
+                            const respuestaSimulacion = await fetch(
+                                `http://localhost:4000/partidas/${idPartida}/simular`,
+                                {
+                                    method: "POST",
+                                    credentials: "include",
+                                }
+                            );
+
+                            const resultado = await respuestaSimulacion.json();
+
+                            // Un 409 puede significar que otro cliente
+                            // ya inició la simulación.
+                            if (
+                                !respuestaSimulacion.ok &&
+                                respuestaSimulacion.status !== 409
+                            ) {
+                                throw new Error(
+                                    resultado.mensaje ||
+                                    "No se pudo iniciar el partido."
+                                );
+                            }
+                        } catch (error) {
+                            console.error(
+                                "Error al iniciar la simulación:",
+                                error
+                            );
+
+                            setError(error.message);
+                        }
+                    }
+                });
+
+                // 4. Recibir eventos nuevos.
+                socket.on("nuevoEvento", evento => {
+                    const eventoConvertido = convertirEvento(evento);
+
+                    setEventos(anteriores => [
+                        eventoConvertido,
+                        ...anteriores,
+                    ]);
+
+                    // Goleadores.
+                    if (
+                        eventoConvertido.tipo === "gol" &&
+                        eventoConvertido.jugador
+                    ) {
+                        setGoleadores(anteriores => [
+                            ...anteriores,
+                            {
+                                nombre: eventoConvertido.jugador.nombre,
+                                numero: eventoConvertido.jugador.numero,
+                                equipo: eventoConvertido.jugador.equipo,
+                                tipo: eventoConvertido.tipoGol,
+                            },
+                        ]);
+                    }
+
+                    // Tarjetas amarillas.
+                    if (
+                        eventoConvertido.tipo === "tarjeta" &&
+                        eventoConvertido.jugador
+                    ) {
+                        setAmonestados(anteriores => {
+                            const yaTieneAmarilla = anteriores.some(a =>
+                                a.nombre === eventoConvertido.jugador.nombre &&
+                                a.equipo === eventoConvertido.jugador.equipo
+                            );
+
+                            if (yaTieneAmarilla) return anteriores;
+
+                            return [
+                                ...anteriores,
+                                {
+                                    nombre: eventoConvertido.jugador.nombre,
+                                    numero: eventoConvertido.jugador.numero,
+                                    equipo: eventoConvertido.jugador.equipo,
+                                },
+                            ];
+                        });
+                    }
+
+                    // Penales de la tanda.
+                    if (
+                        (faseActual.current === "penales" ||
+                            faseActual.current === "mataMata") &&
+                        (
+                            evento.tipo_evento === "GOL_PENAL" ||
+                            evento.tipo_evento === "PENAL_FALLADO"
+                        )
+                    ) {
+                        const convertido =
+                            evento.tipo_evento === "GOL_PENAL";
+
+                        if (evento.equipo === datos.equipo_local.nombre) {
+                            setPenalesLocal(anteriores => [
+                                ...anteriores,
+                                convertido,
+                            ]);
+                        } else if (
+                            evento.equipo === datos.equipo_visitante.nombre
+                        ) {
+                            setPenalesVisitante(anteriores => [
+                                ...anteriores,
+                                convertido,
+                            ]);
+                        }
+                    }
+                });
+
+                // 5. Recibir el avance del reloj y el marcador.
+                socket.on("actualizacionPartido", actualizacion => {
+                    if (actualizacion.minuto !== undefined) {
+                        setMinuto(actualizacion.minuto);
+                    }
+
+                    if (actualizacion.goles_local !== undefined) {
+                        setGolesLocal(actualizacion.goles_local);
+                    }
+
+                    if (actualizacion.goles_visitante !== undefined) {
+                        setGolesVisitante(actualizacion.goles_visitante);
+                    }
+                });
+
+                // Comienza la tanda.
+                socket.on("inicioPenales", () => {
+                    setFase("penales");
+                });
+
+                // La partida terminó.
+                socket.on("partidoFinalizado", resultado => {
+                    setGolesLocal(resultado.goles_local);
+                    setGolesVisitante(resultado.goles_visitante);
+
+                    if (resultado.ganador_penales) {
+                        setGanador(resultado.ganador_penales);
+                    } else {
+                        setGanador(
+                            resultado.goles_local > resultado.goles_visitante
+                                ? "local"
+                                : "visitante"
+                        );
+                    }
+
+                    setFase("final");
+                });
+
+                socket.on("errorPartida", datosError => {
+                    console.error(datosError.mensaje);
+                    setError(datosError.mensaje);
+                });
+
+            } catch (error) {
+                console.error("Error al cargar la partida:", error);
+
+                if (componenteActivo) {
+                    setError(error.message);
+                }
+            } finally {
+                if (componenteActivo) {
+                    setCargando(false);
+                }
             }
-
-            setEventos((anteriores) => [
-                {
-                    minuto,
-                    tipo: "tiroLibre",
-                    descripcion:
-                        `Tiro libre para ${nombreEquipo}. ¡El remate se va desviado por encima del travesaño!`,
-                    nombreEquipo,
-                },
-                ...anteriores,
-            ]);
-
-            return;
         }
 
-        // Penales durante el partido: gol o fallo.
-        if (Math.random() < 0.5) {
-            const jugador = elegirDelantero(local);
+        cargarPartido();
 
-            registrarGol(
-                jugador,
-                local,
-                `¡GOOOL de ${jugador.nombre}! ¡Convierte el penal!`,
-                "penal"
-            );
-        } else {
-            setEventos((anteriores) => [
-                {
-                    minuto,
-                    tipo: "penal",
-                    descripcion:
-                        `¡Penal para ${nombreEquipo}! El arquero lo ataja o el disparo se va desviado.`,
-                    nombreEquipo,
-                },
-                ...anteriores,
-            ]);
-        }
-    }, [minuto, fase, amonestados]);
+        return () => {
+            componenteActivo = false;
 
-    // Decide el ganador al terminar los 90 minutos.
-    useEffect(() => {
-        if (fase !== "definicion") return;
-
-        if (golesLocal > golesVisitante) {
-            setGanador("local");
-            setFase("final");
-        } else if (golesVisitante > golesLocal) {
-            setGanador("visitante");
-            setFase("final");
-        } else {
-            setEventos((anteriores) => [
-                {
-                    minuto: 90,
-                    tipo: "penal",
-                    descripcion:
-                        "¡El partido terminó empatado! La definición se decidirá por penales.",
-                    nombreEquipo: "Definición por penales",
-                },
-                ...anteriores,
-            ]);
-
-            setFase("penales");
-        }
-    }, [fase, golesLocal, golesVisitante]);
-
-    // Ejecuta automáticamente los penales y el mata-mata.
-    useEffect(() => {
-        if (fase !== "penales" && fase !== "mataMata") return;
-
-        const cantidadLocal = penalesLocal.length;
-        const cantidadVisitante = penalesVisitante.length;
-
-        // Terminó la tanda inicial de cinco penales por equipo.
-        if (
-            fase === "penales" &&
-            cantidadLocal === 5 &&
-            cantidadVisitante === 5
-        ) {
-            if (golesPenalesLocal !== golesPenalesVisitante) {
-                setGanador(
-                    golesPenalesLocal > golesPenalesVisitante
-                        ? "local"
-                        : "visitante"
-                );
-
-                setEventos((anteriores) => [
-                    {
-                        minuto: 90,
-                        tipo: "penal",
-                        descripcion:
-                            `Final de la tanda: ${golesPenalesLocal} a ${golesPenalesVisitante}.`,
-                        nombreEquipo: "Definición por penales",
-                    },
-                    ...anteriores,
-                ]);
-
-                setFase("final");
-            } else {
-                setEventos((anteriores) => [
-                    {
-                        minuto: 90,
-                        tipo: "penal",
-                        descripcion:
-                            `¡La tanda sigue empatada ${golesPenalesLocal} a ${golesPenalesVisitante}! Comienza el mata-mata.`,
-                        nombreEquipo: "Definición por penales",
-                    },
-                    ...anteriores,
-                ]);
-
-                setFase("mataMata");
+            if (socket) {
+                socket.disconnect();
             }
-
-            return;
-        }
-
-        // En el mata-mata se comparan los resultados después
-        // de que ambos equipos ejecutaron un penal en esa ronda.
-        if (
-            fase === "mataMata" &&
-            cantidadLocal === cantidadVisitante &&
-            cantidadLocal > 5 &&
-            golesPenalesLocal !== golesPenalesVisitante
-        ) {
-            setGanador(
-                golesPenalesLocal > golesPenalesVisitante
-                    ? "local"
-                    : "visitante"
-            );
-
-            setEventos((anteriores) => [
-                {
-                    minuto: 90,
-                    tipo: "penal",
-                    descripcion:
-                        `¡Se definió el mata-mata! Resultado de la tanda: ${golesPenalesLocal} a ${golesPenalesVisitante}.`,
-                    nombreEquipo: "Definición por penales",
-                },
-                ...anteriores,
-            ]);
-
-            setFase("final");
-            return;
-        }
-
-        // Local ejecuta primero. Luego ejecuta el visitante.
-        const local = cantidadLocal === cantidadVisitante;
-        const equipo = local ? "local" : "visitante";
-        const nombreEquipo = local
-            ? equipoLocal.nombre
-            : equipoVisitante.nombre;
-        const numeroPenal = local
-            ? cantidadLocal + 1
-            : cantidadVisitante + 1;
-
-        const ronda =
-            numeroPenal <= 5
-                ? `Penal ${numeroPenal} de 5`
-                : `Mata-mata, ronda ${numeroPenal - 5}`;
-
-        const temporizador = setTimeout(() => {
-            const convertido = Math.random() < 0.75;
-
-            if (local) {
-                setPenalesLocal((anteriores) => [
-                    ...anteriores,
-                    convertido,
-                ]);
-            } else {
-                setPenalesVisitante((anteriores) => [
-                    ...anteriores,
-                    convertido,
-                ]);
-            }
-
-            setEventos((anteriores) => [
-                {
-                    minuto: 90,
-                    tipo: "penal",
-                    descripcion: convertido
-                        ? `¡Gol de ${nombreEquipo}! ${ronda} convertido.`
-                        : `¡Falló ${nombreEquipo}! ${ronda} errado.`,
-                    nombreEquipo,
-                },
-                ...anteriores,
-            ]);
-        }, 1200);
-
-        return () => clearTimeout(temporizador);
-    }, [
-        fase,
-        penalesLocal,
-        penalesVisitante,
-        golesPenalesLocal,
-        golesPenalesVisitante,
-    ]);
+        };
+    }, [idPartida]);
 
     // Cuenta los goles de cada jugador.
     function contarGoles(jugador, equipo) {
         return goleadores.filter(
-            (gol) =>
+            gol =>
                 gol.nombre === jugador.nombre &&
                 gol.numero === jugador.numero &&
                 gol.equipo === equipo
@@ -520,26 +455,39 @@ export default function PartidoPage() {
     // Comprueba si el jugador recibió una amarilla.
     function tieneAmarilla(jugador, equipo) {
         return amonestados.some(
-            (amonestado) =>
+            amonestado =>
                 amonestado.nombre === jugador.nombre &&
                 amonestado.numero === jugador.numero &&
                 amonestado.equipo === equipo
         );
     }
 
-    // Reinicia todo el partido y la definición.
-    function reiniciarPartido() {
-        setMinuto(0);
-        setGolesLocal(0);
-        setGolesVisitante(0);
-        setEventos([]);
-        setGoleadores([]);
-        setAmonestados([]);
-        setPenalesLocal([]);
-        setPenalesVisitante([]);
-        setGanador("");
-        setFase("partido");
-        ultimoMinutoProcesado.current = 0;
+    // Mientras se consultan los datos de MySQL.
+    if (cargando) {
+        return (
+            <main className={styles.pagina}>
+                <p>Cargando partido...</p>
+            </main>
+        );
+    }
+
+    // Si ocurrió un error.
+    if (error) {
+        return (
+            <main className={styles.pagina}>
+                <h2>No se pudo cargar el partido</h2>
+                <p>{error}</p>
+            </main>
+        );
+    }
+
+    // Evita mostrar la página si no llegaron los equipos.
+    if (!equipoLocal || !equipoVisitante) {
+        return (
+            <main className={styles.pagina}>
+                <p>No se encontraron los equipos de esta partida.</p>
+            </main>
+        );
     }
 
     const nombreGanador =
@@ -594,69 +542,73 @@ export default function PartidoPage() {
             {(fase === "penales" ||
                 fase === "mataMata" ||
                 (fase === "final" && huboTanda)) && (
-                    <section className={styles.panelDefinicionPenales}>
-                        <h2>
-                            {fase === "mataMata"
-                                ? "¡Definición por mata-mata!"
-                                : "Definición por penales"}
-                        </h2>
+                <section className={styles.panelDefinicionPenales}>
+                    <h2>
+                        {fase === "mataMata"
+                            ? "¡Definición por mata-mata!"
+                            : "Definición por penales"}
+                    </h2>
 
-                        <p className={styles.resultadoTanda}>
-                            {golesPenalesLocal} - {golesPenalesVisitante}
-                        </p>
+                    <p className={styles.resultadoTanda}>
+                        {golesPenalesLocal} - {golesPenalesVisitante}
+                    </p>
 
-                        {[
-                            {
-                                nombre: equipoLocal.nombre,
-                                penales: penalesLocal,
-                            },
-                            {
-                                nombre: equipoVisitante.nombre,
-                                penales: penalesVisitante,
-                            },
-                        ].map((equipo, indice) => {
-                            const cantidadCasilleros = Math.max(
-                                5,
-                                penalesLocal.length,
-                                penalesVisitante.length
-                            );
+                    {[
+                        {
+                            nombre: equipoLocal.nombre,
+                            penales: penalesLocal,
+                        },
+                        {
+                            nombre: equipoVisitante.nombre,
+                            penales: penalesVisitante,
+                        },
+                    ].map((equipo, indice) => {
+                        const cantidadCasilleros = Math.max(
+                            5,
+                            penalesLocal.length,
+                            penalesVisitante.length
+                        );
 
-                            return (
-                                <div className={styles.filaTandaPenales} key={indice}>
-                                    <span className={styles.nombreTandaPenales}>
-                                        {equipo.nombre}
-                                    </span>
+                        return (
+                            <div
+                                className={styles.filaTandaPenales}
+                                key={indice}
+                            >
+                                <span className={styles.nombreTandaPenales}>
+                                    {equipo.nombre}
+                                </span>
 
-                                    <div className={styles.casillerosTanda}>
-                                        {Array.from({ length: cantidadCasilleros }).map(
-                                            (_, i) => {
-                                                const resultado = equipo.penales[i];
+                                <div className={styles.casillerosTanda}>
+                                    {Array.from({
+                                        length: cantidadCasilleros,
+                                    }).map((_, i) => {
+                                        const resultado = equipo.penales[i];
 
-                                                return (
-                                                    <div
-                                                        key={i}
-                                                        className={`${styles.casilleroTanda} ${resultado === true
-                                                                ? styles.penalConvertido
-                                                                : resultado === false
-                                                                    ? styles.penalFallado
-                                                                    : ""
-                                                            }`}
-                                                    >
-                                                        {resultado === true
-                                                            ? "⚽"
-                                                            : resultado === false
-                                                                ? "❌"
-                                                                : "◯"}
-                                                    </div>
-                                                );
-                                            }
-                                        )}
-                                    </div>
+                                        return (
+                                            <div
+                                                key={i}
+                                                className={`${styles.casilleroTanda} ${
+                                                    resultado === true
+                                                        ? styles.penalConvertido
+                                                        : resultado === false
+                                                            ? styles.penalFallado
+                                                            : ""
+                                                }`}
+                                            >
+                                                {resultado === true
+                                                    ? "⚽"
+                                                    : resultado === false
+                                                        ? "❌"
+                                                        : "◯"}
+                                            </div>
+                                        );
+                                    })}
                                 </div>
-                            );
-                        })}
-                    </section>
-                )}
+                            </div>
+                        );
+                    })}
+                </section>
+            )}
 
             <section className={styles.contenido}>
                 <div className={styles.alineaciones}>
@@ -665,69 +617,71 @@ export default function PartidoPage() {
                     </div>
 
                     <div className={styles.dosEquipos}>
-                        {[equipoLocal, equipoVisitante].map((equipo, indice) => {
-                            const identificador =
-                                indice === 0 ? "local" : "visitante";
+                        {[equipoLocal, equipoVisitante].map(
+                            (equipo, indice) => {
+                                const identificador =
+                                    indice === 0 ? "local" : "visitante";
 
-                            return (
-                                <div
-                                    key={identificador}
-                                    className={styles.listaEquipo}
-                                >
-                                    <h4>{equipo.nombre}</h4>
+                                return (
+                                    <div
+                                        key={identificador}
+                                        className={styles.listaEquipo}
+                                    >
+                                        <h4>{equipo.nombre}</h4>
 
-                                    {equipo.jugadores.map((jugador) => (
-                                        <div
-                                            key={jugador.numero}
-                                            className={styles.jugador}
-                                        >
-                                            <span className={styles.numero}>
-                                                {jugador.numero}
-                                            </span>
-
-                                            <span className={styles.nombreJugador}>
-                                                {jugador.nombre}
-                                            </span>
-
-                                            {contarGoles(
-                                                jugador,
-                                                identificador
-                                            ).map((gol, indiceGol) => (
-                                                <span
-                                                    key={`gol-${indiceGol}`}
-                                                    title={
-                                                        gol.tipo === "penal"
-                                                            ? "Gol de penal"
-                                                            : gol.tipo === "tiroLibre"
-                                                                ? "Gol de tiro libre"
-                                                                : "Gol"
-                                                    }
-                                                >
-                                                    {gol.tipo === "penal"
-                                                        ? "⚽🎯"
-                                                        : gol.tipo === "tiroLibre"
-                                                            ? "⚽🥅"
-                                                            : "⚽"}
+                                        {equipo.jugadores.map(jugador => (
+                                            <div
+                                                key={jugador.numero}
+                                                className={styles.jugador}
+                                            >
+                                                <span className={styles.numero}>
+                                                    {jugador.numero}
                                                 </span>
-                                            ))}
 
-                                            {tieneAmarilla(
-                                                jugador,
-                                                identificador
-                                            ) && (
+                                                <span className={styles.nombreJugador}>
+                                                    {jugador.nombre}
+                                                </span>
+
+                                                {contarGoles(
+                                                    jugador,
+                                                    identificador
+                                                ).map((gol, indiceGol) => (
+                                                    <span
+                                                        key={`gol-${indiceGol}`}
+                                                        title={
+                                                            gol.tipo === "penal"
+                                                                ? "Gol de penal"
+                                                                : gol.tipo === "tiroLibre"
+                                                                    ? "Gol de tiro libre"
+                                                                    : "Gol"
+                                                        }
+                                                    >
+                                                        {gol.tipo === "penal"
+                                                            ? "⚽🎯"
+                                                            : gol.tipo === "tiroLibre"
+                                                                ? "⚽🥅"
+                                                                : "⚽"}
+                                                    </span>
+                                                ))}
+
+                                                {tieneAmarilla(
+                                                    jugador,
+                                                    identificador
+                                                ) && (
                                                     <span title="Tarjeta amarilla">
                                                         🟨
                                                     </span>
                                                 )}
 
-                                            <span className={styles.posicion}>
-                                                {jugador.posicion}
-                                            </span>
-                                        </div>
-                                    ))}
-                                </div>
-                            );
-                        })}
+                                                <span className={styles.posicion}>
+                                                    {jugador.posicion}
+                                                </span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                );
+                            }
+                        )}
                     </div>
                 </div>
 
@@ -749,11 +703,15 @@ export default function PartidoPage() {
                         ) : (
                             eventos.map((evento, indice) => (
                                 <article
-                                    key={`${evento.minuto}-${indice}`}
-                                    className={`${styles.evento} ${evento.tipo === "gol"
+                                    key={
+                                        evento.id_evento ||
+                                        `${evento.minuto}-${indice}`
+                                    }
+                                    className={`${styles.evento} ${
+                                        evento.tipo === "gol"
                                             ? styles.eventoGol
                                             : ""
-                                        }`}
+                                    }`}
                                 >
                                     <span className={styles.minutoEvento}>
                                         {evento.minuto}'
@@ -801,10 +759,6 @@ export default function PartidoPage() {
                                     ? ` por penales (${golesPenalesLocal}-${golesPenalesVisitante})`
                                     : ""}
                             </p>
-
-                            <button onClick={reiniciarPartido}>
-                                Simular nuevamente
-                            </button>
                         </div>
                     )}
                 </aside>
