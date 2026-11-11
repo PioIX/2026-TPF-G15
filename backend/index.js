@@ -42,6 +42,62 @@ io.use((socket, next) => {
     sessionMiddleware(socket.request, {}, next);
 });
 
+
+io.on("connection", (socket) => {
+
+    socket.on("unirsePartida", async (datos) => {
+        try {
+            const idPartida = Number(datos.id_partida);
+            const usuario = socket.request.session?.usuario;
+
+            if (!usuario || !Number.isInteger(idPartida) || idPartida <= 0) {
+                socket.emit("errorPartida", {
+                    mensaje: "No se pudo ingresar a la partida."
+                });
+                return;
+            }
+
+            // Verificamos que el usuario participe de la partida
+            const partidas = await realizarQuery(`
+                SELECT p.id_partida
+                FROM Partidas p
+                INNER JOIN Equipos el
+                    ON p.equipo_local_id = el.id_equipo
+                INNER JOIN Equipos ev
+                    ON p.equipo_visitante_id = ev.id_equipo
+                WHERE p.id_partida = ?
+                  AND (el.id_usuario = ? OR ev.id_usuario = ?)
+            `, [
+                idPartida,
+                usuario.id_usuario,
+                usuario.id_usuario
+            ]);
+
+            if (partidas.length === 0) {
+                socket.emit("errorPartida", {
+                    mensaje: "No tenés permiso para ingresar a esta partida."
+                });
+                return;
+            }
+
+            socket.join(`partida_${idPartida}`);
+
+            socket.emit("partidaConectada", {
+                id_partida: idPartida
+            });
+
+        } catch (error) {
+            console.error("Error al ingresar a la sala:", error);
+
+            socket.emit("errorPartida", {
+                mensaje: "Ocurrió un error al conectarse a la partida."
+            });
+        }
+    });
+
+});
+
+
 const { realizarQuery, realizarTransaccion } = require("./modulos/mysql");
 
 
@@ -961,6 +1017,1168 @@ app.post("/equipos", async (req, res) => {
 });
 
 /* =========================================================
+   PARTIDAS: CREAR PARTIDA INDIVIDUAL CONTRA BOT
+   ========================================================= */
+
+app.post("/partidas/individual", async (req, res) => {
+    try {
+        // 1. Verificar que el usuario haya iniciado sesión
+        if (!req.session.usuario) {
+            return res.status(401).json({
+                mensaje: "Tenés que iniciar sesión para jugar"
+            });
+        }
+
+        const id_usuario = req.session.usuario.id_usuario;
+        const id_equipo = Number(req.body.id_equipo);
+        const id_modo = Number(req.body.id_modo);
+
+        // 2. Validar los datos recibidos
+        if (
+            !Number.isInteger(id_equipo) || id_equipo <= 0 ||
+            !Number.isInteger(id_modo) || id_modo <= 0
+        ) {
+            return res.status(400).json({
+                mensaje: "Los datos del equipo o del modo no son válidos"
+            });
+        }
+
+        // 3. Comprobar que el equipo pertenezca al usuario
+        const equipos = await realizarQuery(
+            `SELECT
+                e.id_equipo,
+                e.id_modo,
+                e.id_formacion,
+                e.estrategia,
+                e.nombre,
+                f.cant_defensores,
+                f.cant_mediocampistas,
+                f.cant_delanteros,
+                m.nombre AS nombre_modo
+             FROM Equipos e
+             INNER JOIN Formaciones f
+                ON e.id_formacion = f.id_formacion
+             INNER JOIN Modos m
+                ON e.id_modo = m.id_modo
+             WHERE e.id_equipo = ?
+               AND e.id_usuario = ?`,
+            [id_equipo, id_usuario]
+        );
+
+        if (equipos.length === 0) {
+            return res.status(404).json({
+                mensaje: "No se encontró tu equipo"
+            });
+        }
+
+        const equipoUsuario = equipos[0];
+
+        if (Number(equipoUsuario.id_modo) !== id_modo) {
+            return res.status(400).json({
+                mensaje: "El equipo no pertenece al modo seleccionado"
+            });
+        }
+        // 4. Comprobar si el usuario ya tiene una partida de Octavos en curso
+        const partidasExistentes = await realizarQuery(
+            `SELECT
+        p.id_partida,
+        p.instancia,
+        eu.id_equipo,
+        eu.nombre AS nombre_equipo_usuario,
+        eb.id_equipo AS id_equipo_bot,
+        eb.nombre AS nombre_equipo_bot
+     FROM Partidas p
+     INNER JOIN Equipos eu
+        ON p.equipo_local_id = eu.id_equipo
+     INNER JOIN Equipos eb
+        ON p.equipo_visitante_id = eb.id_equipo
+     WHERE p.equipo_local_id = ?
+       AND p.tipo = 0
+       AND p.estado = 'En curso'
+       AND p.instancia = 'Octavos'
+     ORDER BY p.id_partida DESC
+     LIMIT 1`,
+            [id_equipo]
+        );
+
+        if (partidasExistentes.length > 0) {
+            const partidaExistente = partidasExistentes[0];
+
+            // Recuperar los personajes del BOT que ya fue creado.
+            const personajesExistentes = await realizarQuery(
+                `SELECT
+            p.id_personaje,
+            p.nombre,
+            ep.posicion,
+            ep.orden
+         FROM EquiposPersonajes ep
+         INNER JOIN Personajes p
+            ON ep.personaje_id = p.id_personaje
+         WHERE ep.equipo_id = ?
+         ORDER BY ep.orden`,
+                [partidaExistente.id_equipo_bot]
+            );
+
+            return res.status(200).json({
+                mensaje: "Se recuperó la partida individual existente",
+                id_partida: partidaExistente.id_partida,
+                instancia: partidaExistente.instancia,
+                equipo_usuario: {
+                    id_equipo: partidaExistente.id_equipo,
+                    nombre: partidaExistente.nombre_equipo_usuario
+                },
+                equipo_bot: {
+                    id_equipo: partidaExistente.id_equipo_bot,
+                    nombre: partidaExistente.nombre_equipo_bot,
+                    personajes: personajesExistentes
+                }
+            });
+        }
+
+        // 5. Comprobar que exista el usuario reservado para los bots
+        const bots = await realizarQuery(
+            `SELECT id_usuario
+             FROM Usuarios_TPF
+             WHERE id_usuario = 5`,
+        );
+
+        if (bots.length === 0) {
+            return res.status(500).json({
+                mensaje: "No se encontró el usuario reservado para los bots"
+            });
+        }
+
+        // 6. Elegir 11 personajes aleatorios del mismo modo
+        const personajesBot = await realizarQuery(
+            `SELECT
+                id_personaje,
+                nombre,
+                posicion_natural,
+                ataque,
+                defensa,
+                velocidad,
+                habilidad
+             FROM Personajes
+             WHERE id_modo = ?
+             ORDER BY RAND()
+             LIMIT 11`,
+            [id_modo]
+        );
+
+        if (personajesBot.length < 11) {
+            return res.status(400).json({
+                mensaje: "No hay suficientes personajes en este modo para generar un equipo rival"
+            });
+        }
+
+        // 7. Armar las posiciones según la formación del usuario
+        const posicionesBot = [
+            "ARQ",
+            ...Array(equipoUsuario.cant_defensores).fill("DEF"),
+            ...Array(equipoUsuario.cant_mediocampistas).fill("MED"),
+            ...Array(equipoUsuario.cant_delanteros).fill("DEL")
+        ];
+
+        if (posicionesBot.length !== 11) {
+            return res.status(400).json({
+                mensaje: "La formación seleccionada no tiene una distribución válida"
+            });
+        }
+
+        // 8. Crear el equipo BOT y la partida en una transacción
+        const resultado = await realizarTransaccion(async (conexion) => {
+
+            // Crear el equipo rival
+            const [equipoCreado] = await conexion.execute(
+                `INSERT INTO Equipos
+                    (id_usuario, id_modo, id_formacion, estrategia, nombre)
+                 VALUES (?, ?, ?, ?, ?)`,
+                [
+                    5,
+                    id_modo,
+                    equipoUsuario.id_formacion,
+                    equipoUsuario.estrategia,
+                    `Bot - ${equipoUsuario.nombre_modo}`
+                ]
+            );
+
+            const id_equipo_bot = equipoCreado.insertId;
+
+            // Asociar los 11 personajes al equipo BOT
+            for (let i = 0; i < personajesBot.length; i++) {
+                await conexion.execute(
+                    `INSERT INTO EquiposPersonajes
+                        (equipo_id, personaje_id, posicion, orden)
+                     VALUES (?, ?, ?, ?)`,
+                    [
+                        id_equipo_bot,
+                        personajesBot[i].id_personaje,
+                        posicionesBot[i],
+                        i + 1
+                    ]
+                );
+            }
+
+            // Crear la partida: usuario como local y BOT como visitante
+            const [partidaCreada] = await conexion.execute(
+                `INSERT INTO Partidas
+                    (
+                        equipo_local_id,
+                        equipo_visitante_id,
+                        tipo,
+                        estado,
+                        goles_local,
+                        goles_visitante,
+                        instancia,
+                        ganador_penales
+                    )
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+                [
+                    id_equipo,
+                    id_equipo_bot,
+                    0,
+                    "En curso",
+                    0,
+                    0,
+                    "Octavos",
+                    null
+                ]
+            );
+
+            return {
+                id_equipo_bot,
+                id_partida: partidaCreada.insertId
+            };
+        });
+
+        // 9. Responder al frontend
+        res.status(201).json({
+            mensaje: "Partida individual creada correctamente",
+            id_partida: resultado.id_partida,
+            instancia: "Octavos",
+            equipo_usuario: {
+                id_equipo: equipoUsuario.id_equipo,
+                nombre: equipoUsuario.nombre
+            },
+            equipo_bot: {
+                id_equipo: resultado.id_equipo_bot,
+                nombre: `Bot - ${equipoUsuario.nombre_modo}`,
+                personajes: personajesBot.map((personaje, i) => ({
+                    id_personaje: personaje.id_personaje,
+                    nombre: personaje.nombre,
+                    posicion: posicionesBot[i],
+                    orden: i + 1
+                }))
+            }
+        });
+
+    } catch (error) {
+        console.log("Error al crear la partida individual:", error);
+
+        res.status(500).json({
+            mensaje: "No se pudo crear la partida individual"
+        });
+    }
+});
+
+/* =========================================================
+   PARTIDAS: OBTENER INFORMACIÓN PARA SIMULAR
+   ========================================================= */
+
+app.get("/partidas/:id_partida", async (req, res) => {
+    try {
+        // Verificar que el usuario haya iniciado sesión.
+        if (!req.session.usuario) {
+            return res.status(401).json({
+                mensaje: "Tenés que iniciar sesión para ver esta partida"
+            });
+        }
+
+        const id_partida = Number(req.params.id_partida);
+        const id_usuario = req.session.usuario.id_usuario;
+
+        if (!Number.isInteger(id_partida) || id_partida <= 0) {
+            return res.status(400).json({
+                mensaje: "El identificador de la partida no es válido"
+            });
+        }
+
+        // Obtener la partida y los dos equipos.
+        const partidas = await realizarQuery(
+            `SELECT
+                p.id_partida,
+                p.tipo,
+                p.estado,
+                p.goles_local,
+                p.goles_visitante,
+                p.instancia,
+                p.ganador_penales,
+
+                el.id_equipo AS id_equipo_local,
+                el.id_usuario AS usuario_local,
+                el.nombre AS nombre_local,
+                el.estrategia AS estrategia_local,
+                fl.nombre AS formacion_local,
+
+                ev.id_equipo AS id_equipo_visitante,
+                ev.id_usuario AS usuario_visitante,
+                ev.nombre AS nombre_visitante,
+                ev.estrategia AS estrategia_visitante,
+                fv.nombre AS formacion_visitante
+
+            FROM Partidas p
+
+            INNER JOIN Equipos el
+                ON p.equipo_local_id = el.id_equipo
+
+            INNER JOIN Equipos ev
+                ON p.equipo_visitante_id = ev.id_equipo
+
+            INNER JOIN Formaciones fl
+                ON el.id_formacion = fl.id_formacion
+
+            INNER JOIN Formaciones fv
+                ON ev.id_formacion = fv.id_formacion
+
+            WHERE p.id_partida = ?`,
+            [id_partida]
+        );
+
+        if (partidas.length === 0) {
+            return res.status(404).json({
+                mensaje: "No se encontró la partida"
+            });
+        }
+
+        const partida = partidas[0];
+
+        // Comprobar que el usuario sea dueño de alguno de los equipos.
+        if (
+            Number(partida.usuario_local) !== Number(id_usuario) &&
+            Number(partida.usuario_visitante) !== Number(id_usuario)
+        ) {
+            return res.status(403).json({
+                mensaje: "No tenés permiso para acceder a esta partida"
+            });
+        }
+
+        // Obtener los personajes de ambos equipos.
+        const personajes = await realizarQuery(
+            `SELECT
+                ep.equipo_id,
+                ep.personaje_id,
+                ep.posicion,
+                ep.orden,
+                p.nombre,
+                p.descripcion,
+                p.posicion_natural,
+                p.ataque,
+                p.defensa,
+                p.velocidad,
+                p.habilidad
+
+            FROM EquiposPersonajes ep
+
+            INNER JOIN Personajes p
+                ON ep.personaje_id = p.id_personaje
+
+            WHERE ep.equipo_id IN (?, ?)
+            ORDER BY ep.equipo_id, ep.orden`,
+            [
+                partida.id_equipo_local,
+                partida.id_equipo_visitante
+            ]
+        );
+
+        const jugadoresLocales = personajes
+            .filter(
+                (personaje) =>
+                    Number(personaje.equipo_id) ===
+                    Number(partida.id_equipo_local)
+            )
+            .map((personaje) => ({
+                id_personaje: personaje.personaje_id,
+                numero: personaje.orden,
+                nombre: personaje.nombre,
+                posicion: personaje.posicion,
+                posicion_natural: personaje.posicion_natural,
+                ataque: personaje.ataque,
+                defensa: personaje.defensa,
+                velocidad: personaje.velocidad,
+                habilidad: personaje.habilidad
+            }));
+
+        const jugadoresVisitantes = personajes
+            .filter(
+                (personaje) =>
+                    Number(personaje.equipo_id) ===
+                    Number(partida.id_equipo_visitante)
+            )
+            .map((personaje) => ({
+                id_personaje: personaje.personaje_id,
+                numero: personaje.orden,
+                nombre: personaje.nombre,
+                posicion: personaje.posicion,
+                posicion_natural: personaje.posicion_natural,
+                ataque: personaje.ataque,
+                defensa: personaje.defensa,
+                velocidad: personaje.velocidad,
+                habilidad: personaje.habilidad
+            }));
+
+        res.json({
+            id_partida: partida.id_partida,
+            tipo: partida.tipo,
+            estado: partida.estado,
+            instancia: partida.instancia,
+            goles_local: partida.goles_local,
+            goles_visitante: partida.goles_visitante,
+            ganador_penales: partida.ganador_penales,
+
+            equipo_local: {
+                id_equipo: partida.id_equipo_local,
+                nombre: partida.nombre_local,
+                formacion: partida.formacion_local,
+                estrategia: partida.estrategia_local,
+                jugadores: jugadoresLocales
+            },
+
+            equipo_visitante: {
+                id_equipo: partida.id_equipo_visitante,
+                nombre: partida.nombre_visitante,
+                formacion: partida.formacion_visitante,
+                estrategia: partida.estrategia_visitante,
+                jugadores: jugadoresVisitantes
+            }
+        });
+
+    } catch (error) {
+        console.log("Error al obtener la partida:", error);
+
+        res.status(500).json({
+            mensaje: "No se pudo obtener la información de la partida"
+        });
+    }
+});
+
+
+
+// ==========================================
+// FUNCIONES PARA SIMULAR LOS PARTIDOS
+// ==========================================
+
+const eventosAtaque = [
+    "¡Gran jugada colectiva! El equipo avanza al área rival.",
+    "¡Remate al arco! El arquero responde y evita el gol.",
+    "El equipo recupera la pelota y sale de contraataque.",
+    "¡Peligro en el área! La defensa logra despejar la pelota.",
+    "El equipo intenta una combinación ofensiva, pero pierde la pelota."
+];
+
+function numeroAleatorio(min, max) {
+    return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+function elegirElemento(lista) {
+    return lista[numeroAleatorio(0, lista.length - 1)];
+}
+
+function elegirJugador(equipo) {
+    if (!equipo.jugadores || equipo.jugadores.length === 0) {
+        return null;
+    }
+
+    return elegirElemento(equipo.jugadores);
+}
+
+function elegirDelantero(equipo) {
+    const delanteros = equipo.jugadores.filter(
+        jugador => jugador.posicion === "DEL"
+    );
+
+    if (delanteros.length > 0) {
+        return elegirElemento(delanteros);
+    }
+
+    return elegirJugador(equipo);
+}
+
+// Obtiene los datos de los dos equipos de una partida
+async function obtenerDatosPartida(idPartida) {
+    const partidas = await realizarQuery(`
+        SELECT
+            p.*,
+            el.nombre AS nombre_local,
+            ev.nombre AS nombre_visitante
+        FROM Partidas p
+        INNER JOIN Equipos el
+            ON p.equipo_local_id = el.id_equipo
+        INNER JOIN Equipos ev
+            ON p.equipo_visitante_id = ev.id_equipo
+        WHERE p.id_partida = ?
+    `, [idPartida]);
+
+    if (partidas.length === 0) {
+        throw new Error("No se encontró la partida.");
+    }
+
+    const partida = partidas[0];
+
+    const jugadoresLocal = await realizarQuery(`
+        SELECT
+            per.id_personaje,
+            per.nombre,
+            ep.posicion,
+            ep.orden
+        FROM EquiposPersonajes ep
+        INNER JOIN Personajes per
+            ON ep.personaje_id = per.id_personaje
+        WHERE ep.equipo_id = ?
+        ORDER BY ep.orden
+    `, [partida.equipo_local_id]);
+
+    const jugadoresVisitante = await realizarQuery(`
+        SELECT
+            per.id_personaje,
+            per.nombre,
+            ep.posicion,
+            ep.orden
+        FROM EquiposPersonajes ep
+        INNER JOIN Personajes per
+            ON ep.personaje_id = per.id_personaje
+        WHERE ep.equipo_id = ?
+        ORDER BY ep.orden
+    `, [partida.equipo_visitante_id]);
+
+    return {
+        ...partida,
+        equipoLocal: {
+            id: partida.equipo_local_id,
+            nombre: partida.nombre_local,
+            jugadores: jugadoresLocal
+        },
+        equipoVisitante: {
+            id: partida.equipo_visitante_id,
+            nombre: partida.nombre_visitante,
+            jugadores: jugadoresVisitante
+        }
+    };
+}
+
+// Guarda un evento en MySQL y lo comunica por Socket.IO
+async function guardarEvento(idPartida, evento) {
+    const resultado = await realizarQuery(`
+        INSERT INTO EventosPartida
+            (id_partida, minuto, tipo_evento, descripcion)
+        VALUES (?, ?, ?, ?)
+    `, [
+        idPartida,
+        evento.minuto,
+        evento.tipo_evento,
+        evento.descripcion
+    ]);
+
+    const eventoGuardado = {
+        id_evento: resultado.insertId,
+        ...evento
+    };
+
+    io.to(`partida_${idPartida}`).emit(
+        "nuevoEvento",
+        eventoGuardado
+    );
+
+    return eventoGuardado;
+}
+
+// Actualiza el marcador en la base de datos
+async function actualizarMarcador(idPartida, golesLocal, golesVisitante) {
+    await realizarQuery(`
+        UPDATE Partidas
+        SET goles_local = ?, goles_visitante = ?
+        WHERE id_partida = ?
+    `, [golesLocal, golesVisitante, idPartida]);
+
+    io.to(`partida_${idPartida}`).emit("actualizacionPartido", {
+        goles_local: golesLocal,
+        goles_visitante: golesVisitante
+    });
+}
+
+// Genera un evento aleatorio para un intervalo del partido
+function generarEventoAleatorio(partida, minuto) {
+    const equipoLocal = partida.equipoLocal;
+    const equipoVisitante = partida.equipoVisitante;
+
+    const equipo = Math.random() < 0.5
+        ? equipoLocal
+        : equipoVisitante;
+
+    const nombreEquipo = equipo.nombre;
+
+    // 15% de probabilidad de un gol normal
+    if (Math.random() * 100 < 15) {
+        const jugador = elegirDelantero(equipo);
+
+        return {
+            minuto,
+            tipo_evento: "GOL",
+            descripcion: `¡GOOOOL de ${nombreEquipo}! ${jugador ? jugador.nombre : "El equipo"} convierte para su equipo.`,
+            equipo: nombreEquipo,
+            tipoGol: "normal"
+        };
+    }
+
+    const azar = Math.random() * 100;
+
+    // Ataque: 35%
+    if (azar < 35) {
+        return {
+            minuto,
+            tipo_evento: "ATAQUE",
+            descripcion: `${nombreEquipo}: ${elegirElemento(eventosAtaque)}`,
+            equipo: nombreEquipo
+        };
+    }
+
+    // Tarjeta amarilla: 17%
+    if (azar < 52) {
+        const jugador = elegirJugador(equipo);
+
+        return {
+            minuto,
+            tipo_evento: "TARJETA",
+            descripcion: `Tarjeta amarilla para ${jugador ? jugador.nombre : "un jugador"} de ${nombreEquipo}.`,
+            equipo: nombreEquipo,
+            jugador: jugador ? jugador.nombre : null
+        };
+    }
+
+    // Córner: 20%
+    if (azar < 72) {
+        return {
+            minuto,
+            tipo_evento: "CORNER",
+            descripcion: `Tiro de esquina para ${nombreEquipo}.`,
+            equipo: nombreEquipo
+        };
+    }
+
+    // Tiro libre: 21%
+    if (azar < 93) {
+        const resultado = Math.random() * 100;
+
+        // 20%: gol directo
+        if (resultado < 20) {
+            const jugador = elegirDelantero(equipo);
+
+            return {
+                minuto,
+                tipo_evento: "GOL_TIRO_LIBRE",
+                descripcion: `¡Golazo de tiro libre de ${jugador ? jugador.nombre : nombreEquipo}!`,
+                equipo: nombreEquipo,
+                jugador: jugador ? jugador.nombre : null,
+                tipoGol: "tiroLibre"
+            };
+        }
+
+        // 30%: pelota al centro del área
+        if (resultado < 50) {
+            return {
+                minuto,
+                tipo_evento: "TIRO_LIBRE",
+                descripcion: `Tiro libre para ${nombreEquipo}. La pelota llega al área, pero la defensa despeja.`,
+                equipo: nombreEquipo
+            };
+        }
+
+        // 5%: gol de cabeza
+        if (resultado < 55) {
+            const jugador = elegirJugador(equipo);
+
+            return {
+                minuto,
+                tipo_evento: "GOL_TIROLIBRE_CABEZA",
+                descripcion: `¡Gol de cabeza de ${jugador ? jugador.nombre : nombreEquipo} tras un tiro libre!`,
+                equipo: nombreEquipo,
+                jugador: jugador ? jugador.nombre : null,
+                tipoGol: "tiroLibre"
+            };
+        }
+
+        // 45%: tiro libre desperdiciado
+        return {
+            minuto,
+            tipo_evento: "TIRO_LIBRE",
+            descripcion: `El tiro libre de ${nombreEquipo} se va desviado.`,
+            equipo: nombreEquipo
+        };
+    }
+
+    // Penal: 7%
+    const convierte = Math.random() < 0.5;
+
+    if (convierte) {
+        const jugador = elegirDelantero(equipo);
+
+        return {
+            minuto,
+            tipo_evento: "GOL_PENAL",
+            descripcion: `¡Gol de penal de ${jugador ? jugador.nombre : nombreEquipo}!`,
+            equipo: nombreEquipo,
+            jugador: jugador ? jugador.nombre : null,
+            tipoGol: "penal"
+        };
+    }
+
+    return {
+        minuto,
+        tipo_evento: "PENAL_FALLADO",
+        descripcion: `¡El penal de ${nombreEquipo} no termina en gol!`,
+        equipo: nombreEquipo
+    };
+}
+
+
+
+// Espera una cantidad de milisegundos
+function esperar(milisegundos) {
+    return new Promise(resolve => setTimeout(resolve, milisegundos));
+}
+
+// Simula la tanda de penales si el partido termina empatado
+async function simularPenales(idPartida, partida, golesLocal, golesVisitante) {
+    let penalesLocal = 0;
+    let penalesVisitante = 0;
+
+    const equipoLocal = partida.equipoLocal;
+    const equipoVisitante = partida.equipoVisitante;
+
+    // Primera tanda: cinco penales por equipo
+    for (let i = 0; i < 5; i++) {
+        const convierteLocal = Math.random() < 0.75;
+
+        if (convierteLocal) {
+            penalesLocal++;
+        }
+
+        await guardarEvento(idPartida, {
+            minuto: 90,
+            tipo_evento: convierteLocal ? "GOL_PENAL" : "PENAL_FALLADO",
+            descripcion: convierteLocal
+                ? `¡Gol de ${equipoLocal.nombre} en la tanda de penales!`
+                : `${equipoLocal.nombre} falla su penal.`,
+            equipo: equipoLocal.nombre,
+            tipoGol: convierteLocal ? "penal" : null
+        });
+
+        io.to(`partida_${idPartida}`).emit("actualizacionPenales", {
+            penales_local: penalesLocal,
+            penales_visitante: penalesVisitante
+        });
+
+        const convierteVisitante = Math.random() < 0.75;
+
+        if (convierteVisitante) {
+            penalesVisitante++;
+        }
+
+        await guardarEvento(idPartida, {
+            minuto: 90,
+            tipo_evento: convierteVisitante ? "GOL_PENAL" : "PENAL_FALLADO",
+            descripcion: convierteVisitante
+                ? `¡Gol de ${equipoVisitante.nombre} en la tanda de penales!`
+                : `${equipoVisitante.nombre} falla su penal.`,
+            equipo: equipoVisitante.nombre,
+            tipoGol: convierteVisitante ? "penal" : null
+        });
+
+        io.to(`partida_${idPartida}`).emit("actualizacionPenales", {
+            penales_local: penalesLocal,
+            penales_visitante: penalesVisitante
+        });
+    }
+
+    // Si siguen empatados, se ejecuta un penal por equipo
+    // hasta que uno convierta y el otro falle.
+    while (penalesLocal === penalesVisitante) {
+        const convierteLocal = Math.random() < 0.75;
+
+        if (convierteLocal) {
+            penalesLocal++;
+        }
+
+        await guardarEvento(idPartida, {
+            minuto: 90,
+            tipo_evento: convierteLocal ? "GOL_PENAL" : "PENAL_FALLADO",
+            descripcion: convierteLocal
+                ? `¡Gol de ${equipoLocal.nombre} en la muerte súbita!`
+                : `${equipoLocal.nombre} falla su penal en la muerte súbita.`,
+            equipo: equipoLocal.nombre,
+            tipoGol: convierteLocal ? "penal" : null
+        });
+
+        const convierteVisitante = Math.random() < 0.75;
+
+        if (convierteVisitante) {
+            penalesVisitante++;
+        }
+
+        await guardarEvento(idPartida, {
+            minuto: 90,
+            tipo_evento: convierteVisitante ? "GOL_PENAL" : "PENAL_FALLADO",
+            descripcion: convierteVisitante
+                ? `¡Gol de ${equipoVisitante.nombre} en la muerte súbita!`
+                : `${equipoVisitante.nombre} falla su penal en la muerte súbita.`,
+            equipo: equipoVisitante.nombre,
+            tipoGol: convierteVisitante ? "penal" : null
+        });
+
+        io.to(`partida_${idPartida}`).emit("actualizacionPenales", {
+            penales_local: penalesLocal,
+            penales_visitante: penalesVisitante
+        });
+    }
+
+    return penalesLocal > penalesVisitante ? "local" : "visitante";
+}
+
+// Ejecuta la simulación completa de un partido
+async function simularPartido(idPartida) {
+    try {
+        const partida = await obtenerDatosPartida(idPartida);
+
+        let golesLocal = 0;
+        let golesVisitante = 0;
+        let minutoAnterior = 0;
+
+        // El partido tiene 18 intervalos de cinco minutos
+        for (let i = 1; i <= 18; i++) {
+            await esperar(1500);
+
+            const minutoActual = i * 5;
+
+            // Generamos como máximo un evento por intervalo
+            const evento = generarEventoAleatorio(
+                partida,
+                numeroAleatorio(minutoAnterior + 1, minutoActual)
+            );
+
+            if (evento) {
+                await guardarEvento(idPartida, evento);
+
+                const esGol = evento.tipo_evento.startsWith("GOL");
+
+                if (esGol) {
+                    if (evento.equipo === partida.equipoLocal.nombre) {
+                        golesLocal++;
+                    } else {
+                        golesVisitante++;
+                    }
+
+                    await actualizarMarcador(
+                        idPartida,
+                        golesLocal,
+                        golesVisitante
+                    );
+                }
+            }
+
+            minutoAnterior = minutoActual;
+
+            // Le avisamos al frontend que avanzó el reloj
+            io.to(`partida_${idPartida}`).emit("actualizacionPartido", {
+                minuto: minutoActual,
+                goles_local: golesLocal,
+                goles_visitante: golesVisitante
+            });
+        }
+
+        let ganadorPenales = null;
+
+        // Si hay empate, se define por penales
+        if (golesLocal === golesVisitante) {
+            io.to(`partida_${idPartida}`).emit("inicioPenales");
+
+            ganadorPenales = await simularPenales(
+                idPartida,
+                partida,
+                golesLocal,
+                golesVisitante
+            );
+        }
+
+        // Finalizamos la partida y actualizamos las estadísticas
+        // dentro de una única transacción.
+
+        const partidaFinalizada = await realizarTransaccion(async (conexion) => {
+
+            // Obtener los usuarios dueños de ambos equipos.
+            const [partidas] = await conexion.execute(`
+        SELECT
+            p.estado,
+            el.id_usuario AS usuario_local,
+            ev.id_usuario AS usuario_visitante
+        FROM Partidas p
+        INNER JOIN Equipos el
+            ON p.equipo_local_id = el.id_equipo
+        INNER JOIN Equipos ev
+            ON p.equipo_visitante_id = ev.id_equipo
+        WHERE p.id_partida = ?
+        FOR UPDATE
+    `, [idPartida]);
+
+            if (partidas.length === 0) {
+                throw new Error("No se encontró la partida al finalizar.");
+            }
+
+            if (partidas[0].estado !== "Simulando") {
+                return false;
+            }
+
+            const usuarioLocal = Number(partidas[0].usuario_local);
+            const usuarioVisitante = Number(partidas[0].usuario_visitante);
+
+            // Determinar quién ganó.
+            let ganoLocal;
+
+            if (golesLocal > golesVisitante) {
+                ganoLocal = true;
+            } else if (golesVisitante > golesLocal) {
+                ganoLocal = false;
+            } else if (ganadorPenales === "local") {
+                ganoLocal = true;
+            } else if (ganadorPenales === "visitante") {
+                ganoLocal = false;
+            } else {
+                throw new Error("La partida terminó empatada sin un ganador por penales.");
+            }
+
+            // Actualizar el resultado definitivo.
+            const [actualizacion] = await conexion.execute(`
+        UPDATE Partidas
+        SET
+            goles_local = ?,
+            goles_visitante = ?,
+            ganador_penales = ?,
+            estado = 'Finalizada'
+        WHERE id_partida = ?
+          AND estado = 'Simulando'
+    `, [golesLocal, golesVisitante, ganadorPenales, idPartida]);
+
+            if (actualizacion.affectedRows !== 1) {
+                return false;
+            }
+
+            // Actualizar las estadísticas del usuario local.
+            if (usuarioLocal !== 5) {
+                const [resultadoLocal] = await conexion.execute(`
+            UPDATE Usuarios_TPF
+            SET
+                partidas_jugadas = partidas_jugadas + 1,
+                partidas_ganadas = partidas_ganadas + ?
+            WHERE id_usuario = ?
+        `, [ganoLocal ? 1 : 0, usuarioLocal]);
+
+                if (resultadoLocal.affectedRows !== 1) {
+                    throw new Error(
+                        `No se pudieron actualizar las estadísticas del usuario local ${usuarioLocal}`
+                    );
+                }
+            }
+
+            // Actualizar las estadísticas del usuario visitante.
+            if (usuarioVisitante !== 5 && usuarioVisitante !== usuarioLocal) {
+                const [resultadoVisitante] = await conexion.execute(`
+            UPDATE Usuarios_TPF
+            SET
+                partidas_jugadas = partidas_jugadas + 1,
+                partidas_ganadas = partidas_ganadas + ?
+            WHERE id_usuario = ?
+        `, [ganoLocal ? 0 : 1, usuarioVisitante]);
+
+                if (resultadoVisitante.affectedRows !== 1) {
+                    throw new Error(
+                        `No se pudieron actualizar las estadísticas del usuario visitante ${usuarioVisitante}`
+                    );
+                }
+            }
+
+            console.log("Estadísticas actualizadas:", {
+                partida: idPartida,
+                usuarioLocal,
+                usuarioVisitante,
+                ganoLocal
+            });
+
+            return true;
+        });
+
+
+        // Si la partida ya había sido finalizada, no volvemos a emitir el resultado.
+        if (!partidaFinalizada) {
+            return;
+        }
+
+        io.to(`partida_${idPartida}`).emit("partidoFinalizado", {
+            goles_local: golesLocal,
+            goles_visitante: golesVisitante,
+            ganador_penales: ganadorPenales
+        });
+
+    } catch (error) {
+        console.error("Error al simular el partido:", error);
+
+        // Si falla la simulación, dejamos la partida disponible
+        await realizarQuery(`
+            UPDATE Partidas
+            SET estado = 'En curso'
+            WHERE id_partida = ? AND estado = 'Simulando'
+        `, [idPartida]);
+    }
+}
+
+
+
+// ==========================================
+// INICIAR SIMULACIÓN DE UNA PARTIDA
+// ==========================================
+
+app.post("/partidas/:id_partida/simular", async (req, res) => {
+    try {
+        if (!req.session.usuario) {
+            return res.status(401).send({
+                mensaje: "Tenés que iniciar sesión."
+            });
+        }
+
+        const idPartida = Number(req.params.id_partida);
+        const idUsuario = req.session.usuario.id_usuario;
+
+        if (!Number.isInteger(idPartida) || idPartida <= 0) {
+            return res.status(400).send({
+                mensaje: "ID de partida inválido."
+            });
+        }
+
+        // Verificamos que el usuario participe de la partida
+        const partidas = await realizarQuery(`
+            SELECT p.id_partida, p.estado
+            FROM Partidas p
+            INNER JOIN Equipos el
+                ON p.equipo_local_id = el.id_equipo
+            INNER JOIN Equipos ev
+                ON p.equipo_visitante_id = ev.id_equipo
+            WHERE p.id_partida = ?
+              AND (el.id_usuario = ? OR ev.id_usuario = ?)
+        `, [idPartida, idUsuario, idUsuario]);
+
+        if (partidas.length === 0) {
+            return res.status(403).send({
+                mensaje: "No tenés permiso para simular esta partida."
+            });
+        }
+
+        if (partidas[0].estado !== "En curso") {
+            return res.status(409).send({
+                mensaje: "Esta partida ya fue iniciada o finalizada."
+            });
+        }
+
+        // Cambiamos el estado antes de iniciar la simulación.
+        // Esto evita que dos solicitudes la inicien al mismo tiempo.
+        const actualizacion = await realizarQuery(`
+            UPDATE Partidas
+            SET estado = 'Simulando'
+            WHERE id_partida = ? AND estado = 'En curso'
+        `, [idPartida]);
+
+        if (actualizacion.affectedRows === 0) {
+            return res.status(409).send({
+                mensaje: "La partida ya está siendo simulada."
+            });
+        }
+
+        // No esperamos a que termine: la simulación corre en segundo plano
+        simularPartido(idPartida);
+
+        return res.status(202).send({
+            mensaje: "La simulación comenzó.",
+            id_partida: idPartida
+        });
+
+    } catch (error) {
+        console.error("Error al iniciar la simulación:", error);
+
+        return res.status(500).send({
+            mensaje: "No se pudo iniciar la simulación."
+        });
+    }
+});
+
+
+// ==========================================
+// OBTENER LOS EVENTOS DE UNA PARTIDA
+// ==========================================
+
+app.get("/partidas/:id_partida/eventos", async (req, res) => {
+    try {
+        if (!req.session.usuario) {
+            return res.status(401).send({
+                mensaje: "Tenés que iniciar sesión."
+            });
+        }
+
+        const idPartida = Number(req.params.id_partida);
+        const idUsuario = req.session.usuario.id_usuario;
+
+        if (!Number.isInteger(idPartida) || idPartida <= 0) {
+            return res.status(400).send({
+                mensaje: "ID de partida inválido."
+            });
+        }
+
+        const partidas = await realizarQuery(`
+            SELECT p.id_partida
+            FROM Partidas p
+            INNER JOIN Equipos el
+                ON p.equipo_local_id = el.id_equipo
+            INNER JOIN Equipos ev
+                ON p.equipo_visitante_id = ev.id_equipo
+            WHERE p.id_partida = ?
+              AND (el.id_usuario = ? OR ev.id_usuario = ?)
+        `, [idPartida, idUsuario, idUsuario]);
+
+        if (partidas.length === 0) {
+            return res.status(403).send({
+                mensaje: "No tenés permiso para consultar esta partida."
+            });
+        }
+
+        const eventos = await realizarQuery(`
+            SELECT
+                id_evento,
+                minuto,
+                tipo_evento,
+                descripcion
+            FROM EventosPartida
+            WHERE id_partida = ?
+            ORDER BY minuto ASC, id_evento ASC
+        `, [idPartida]);
+
+        return res.send(eventos);
+
+    } catch (error) {
+        console.error("Error al obtener los eventos:", error);
+
+        return res.status(500).send({
+            mensaje: "No se pudieron obtener los eventos."
+        });
+    }
+});
+
+
+/* =========================================================
    RANKING DE JUGADORES
    ========================================================= */
 
@@ -1029,10 +2247,12 @@ app.get("/ranking", async (req, res) => {
                 )
                 AND p.estado = 'Finalizada'
 
+            WHERE u.id_usuario <> 5
+
             GROUP BY u.id_usuario, u.nombre_usuario
 
             ORDER BY puntos DESC, victorias DESC,
-                     partidas DESC, u.nombre_usuario ASC`
+                     partidas ASC, u.nombre_usuario ASC`
         );
 
         res.json(ranking);
@@ -1082,6 +2302,7 @@ app.get("/estadisticas", async (req, res) => {
         );
 
         res.json({
+            puntos: usuario.partidas_ganadas * 3,
             victorias: usuario.partidas_ganadas,
             partidasJugadas: usuario.partidas_jugadas,
             ranking: resultadoRanking[0].ranking

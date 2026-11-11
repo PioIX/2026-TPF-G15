@@ -83,9 +83,9 @@ export default function RankingPage() {
                         typeof objeto === "string"
                             ? objeto
                             : objeto.nombre ||
-                              objeto.titulo ||
-                              objeto.descripcion ||
-                              "Próceres Argentinos"
+                            objeto.titulo ||
+                            objeto.descripcion ||
+                            "Próceres Argentinos"
                     );
                 } catch {
                     setDesafio(desafioGuardado);
@@ -117,9 +117,9 @@ export default function RankingPage() {
             const lista = Array.isArray(datos)
                 ? datos
                 : datos.ranking ||
-                  datos.resultados ||
-                  datos.usuarios ||
-                  [];
+                datos.resultados ||
+                datos.usuarios ||
+                [];
 
             if (!Array.isArray(lista)) {
                 throw new Error("El formato del ranking no es válido.");
@@ -129,11 +129,11 @@ export default function RankingPage() {
                 .map((jugador, indice) =>
                     normalizarJugador(jugador, indice)
                 )
-                .sort(
-                    (a, b) =>
-                        b.puntos - a.puntos ||
-                        b.victorias - a.victorias ||
-                        b.partidas - a.partidas
+                .sort((a, b) =>
+                    b.puntos - a.puntos ||
+                    b.victorias - a.victorias ||
+                    a.partidas - b.partidas ||
+                    a.nombre.localeCompare(b.nombre)
                 );
 
             setRanking(ordenados);
@@ -265,7 +265,7 @@ export default function RankingPage() {
                                         idActual !== undefined &&
                                         idActual !== null &&
                                         String(jugador.id) ===
-                                            String(idActual);
+                                        String(idActual);
 
                                     return (
                                         <tr
