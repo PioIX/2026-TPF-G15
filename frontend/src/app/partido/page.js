@@ -39,6 +39,7 @@ function PartidoContenido() {
 
     const [fase, setFase] = useState("partido");
     const [ganador, setGanador] = useState("");
+    const [partidoFinalizadoId, setPartidoFinalizadoId] = useState(null);
 
     const [penalesLocal, setPenalesLocal] = useState([]);
     const [penalesVisitante, setPenalesVisitante] = useState([]);
@@ -67,6 +68,11 @@ function PartidoContenido() {
                 setCargando(false);
                 return;
             }
+
+            setPartidoFinalizadoId(null);
+            setFase("partido");
+            setGanador("");
+            setInstanciaPartida("");
 
             try {
                 // 1. Obtener la partida y los equipos.
@@ -240,6 +246,7 @@ function PartidoContenido() {
 
                 // Si la partida ya terminó, mostrar el resultado.
                 if (datos.estado === "Finalizada") {
+                    setPartidoFinalizadoId(idPartida);
                     setFase("final");
 
                     if (datos.ganador_penales) {
@@ -408,6 +415,7 @@ function PartidoContenido() {
                 socket.on("partidoFinalizado", resultado => {
                     setGolesLocal(resultado.goles_local);
                     setGolesVisitante(resultado.goles_visitante);
+                    setPartidoFinalizadoId(idPartida);
 
                     if (resultado.ganador_penales) {
                         setGanador(resultado.ganador_penales);
@@ -510,31 +518,31 @@ function PartidoContenido() {
         Semifinal: "Final"
     }[instanciaPartida];
 
-function continuarTorneo() {
-    console.log("Siguiente instancia:", siguienteInstancia);
-    console.log("Equipo local:", equipoLocal);
-    console.log("ID equipo:", equipoLocal?.id_equipo);
-    console.log("ID modo:", idModo);
+    function continuarTorneo() {
+        if (!siguienteInstancia) {
+            alert("No se encontró la siguiente instancia.");
+            return;
+        }
 
-    if (!siguienteInstancia) {
-        alert("No se encontró la siguiente instancia.");
-        return;
+        if (!equipoLocal?.id_equipo) {
+            alert("No se encontró el ID del equipo.");
+            return;
+        }
+
+        if (!idModo) {
+            alert("No se encontró el ID del modo.");
+            return;
+        }
+
+        const parametros = new URLSearchParams({
+            tipo: "individual",
+            modo: String(idModo),
+            instancia: siguienteInstancia,
+            id_equipo: String(equipoLocal.id_equipo),
+        });
+
+        router.push(`/prepartido?${parametros.toString()}`);
     }
-
-    if (!equipoLocal?.id_equipo) {
-        alert("No se encontró el ID del equipo.");
-        return;
-    }
-
-    if (!idModo) {
-        alert("No se encontró el ID del modo.");
-        return;
-    }
-
-    router.push(
-        `/prepartido?tipo=individual&modo=${idModo}&instancia=${siguienteInstancia}&id_equipo=${equipoLocal.id_equipo}`
-    );
-}
 
     function volverAlInicio() {
         router.push("/inicio");
@@ -551,7 +559,7 @@ function continuarTorneo() {
 
                 <div className={styles.marcador}>
                     <p className={styles.competicion}>
-                        ARGENTINA FC · PARTIDO
+                        ARGENTINA FC · {instanciaPartida.toUpperCase()}
                     </p>
 
                     <div className={styles.resultado}>
@@ -792,7 +800,8 @@ function continuarTorneo() {
                         )}
                     </div>
 
-                    {fase === "final" && (
+                    {fase === "final" &&
+                        partidoFinalizadoId === idPartida && (
                         <div className={styles.final}>
                             <h3>¡Partido finalizado!</h3>
 

@@ -28,8 +28,8 @@ function PrepartidoContenido() {
     const [partida, setPartida] = useState(null);
     const [error, setError] = useState("");
 
-    // Evita que React ejecute dos veces la creación durante las pruebas.
-    const solicitudIniciada = useRef(false);
+    // Evita duplicar la creación para la misma instancia si React repite el efecto.
+    const solicitudIniciada = useRef("");
 
     const esIndividual = tipo === "individual";
     const esMultijugador = tipo === "multijugador";
@@ -49,17 +49,26 @@ function PrepartidoContenido() {
     }[instancia] || "Instancia del torneo";
 
     useEffect(() => {
-        if (!esIndividual || solicitudIniciada.current) {
+        const claveSolicitud = [
+            modo,
+            instancia,
+            idEquipoParam || "",
+        ].join("|");
+
+        if (
+            !esIndividual ||
+            solicitudIniciada.current === claveSolicitud
+        ) {
             return;
         }
 
-        solicitudIniciada.current = true;
+        solicitudIniciada.current = claveSolicitud;
+        setPartida(null);
+        setCargando(true);
+        setError("");
 
         async function crearPartida() {
             try {
-                setCargando(true);
-                setError("");
-
                 // Recuperar el equipo de la URL o de sessionStorage.
                 const equipoGuardado = sessionStorage.getItem("equipoPendiente");
 
@@ -103,14 +112,22 @@ function PrepartidoContenido() {
                     );
                 }
 
+                if (solicitudIniciada.current !== claveSolicitud) {
+                    return;
+                }
+
                 // Guardar los datos recibidos para mostrarlos en pantalla.
                 setPartida(datos);
 
             } catch (error) {
                 console.error("Error al preparar la partida:", error);
-                setError(error.message);
+                if (solicitudIniciada.current === claveSolicitud) {
+                    setError(error.message);
+                }
             } finally {
-                setCargando(false);
+                if (solicitudIniciada.current === claveSolicitud) {
+                    setCargando(false);
+                }
             }
         }
 

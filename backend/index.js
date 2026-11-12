@@ -1377,6 +1377,8 @@ app.post("/partidas/individual", async (req, res) => {
             });
         }
 
+        const nombreBot = `Bot - ${instancia} - ${equipoUsuario.nombre_modo}`;
+
         // 10. Crear el equipo BOT y la partida en una transacción
         const resultado = await realizarTransaccion(async (conexion) => {
 
@@ -1390,7 +1392,7 @@ app.post("/partidas/individual", async (req, res) => {
                     id_modo,
                     equipoUsuario.id_formacion,
                     equipoUsuario.estrategia,
-                    `Bot - ${equipoUsuario.nombre_modo}`
+                    nombreBot
                 ]
             );
 
@@ -1456,7 +1458,7 @@ app.post("/partidas/individual", async (req, res) => {
 
             equipo_bot: {
                 id_equipo: resultado.id_equipo_bot,
-                nombre: `Bot - ${equipoUsuario.nombre_modo}`,
+                nombre: nombreBot,
                 personajes: personajesBot.map((personaje, i) => ({
                     id_personaje: personaje.id_personaje,
                     nombre: personaje.nombre,
@@ -2576,4 +2578,3 @@ app.get("/estadisticas", async (req, res) => {
         });
     }
 });
-
