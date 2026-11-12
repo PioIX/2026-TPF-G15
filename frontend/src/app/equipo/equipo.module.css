@@ -217,7 +217,14 @@
     font-size: 7px;
 }
 
-.ocupado{
+.ocupado {
+    background-color: #f5a623;
+    border-color: #ffd27a;
+    color: #172536;
+}
+
+/* Evita que el hover cambie el color de las posiciones ocupadas */
+.posicion.ocupado:hover {
     background-color: #f5a623;
     border-color: #ffd27a;
     color: #172536;
@@ -226,10 +233,6 @@
 .posicion span {
     margin-top: 2px;
     font-size: 6px;
-}
-
-.posicion:hover {
-    background: #24536a;
 }
 
 .bandeja h2 {
