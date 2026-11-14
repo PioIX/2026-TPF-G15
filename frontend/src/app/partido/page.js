@@ -541,6 +541,8 @@ function PartidoContenido() {
             id_equipo: String(equipoLocal.id_equipo),
         });
 
+        setPenalesLocal([]);
+        setPenalesVisitante([]);
         router.push(`/prepartido?${parametros.toString()}`);
     }
 
