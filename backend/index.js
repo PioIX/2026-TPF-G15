@@ -2,6 +2,10 @@ const express = require("express");
 const cors = require("cors");
 const session = require("express-session");
 const { Server } = require("socket.io");
+const crypto = require("crypto");
+
+
+const { realizarQuery, realizarTransaccion } = require("./modulos/mysql");
 
 require("dotenv").config({ path: ".home.env" });
 
@@ -96,9 +100,6 @@ io.on("connection", (socket) => {
     });
 
 });
-
-
-const { realizarQuery, realizarTransaccion } = require("./modulos/mysql");
 
 
 
@@ -1136,6 +1137,494 @@ app.post("/equipos", async (req, res) => {
         });
     }
 });
+
+
+/* =========================================================
+   SALAS MULTIJUGADOR
+   ========================================================= */
+
+// Obtener las salas públicas que todavía están esperando
+app.get("/salas/publicas", async (req, res) => {
+    try {
+        if (!req.session.usuario) {
+            return res.status(401).json({
+                mensaje: "Tenés que iniciar sesión."
+            });
+        }
+
+        const salas = await realizarQuery(`
+            SELECT
+                s.id_sala,
+                s.id_creador,
+                u.nombre_usuario AS nombre_creador,
+                s.id_modo,
+                m.nombre AS nombre_modo,
+                s.id_equipo_creador,
+                e.nombre AS nombre_equipo,
+                s.fecha_creacion
+            FROM SalasMultijugador s
+            INNER JOIN Usuarios_TPF u
+                ON s.id_creador = u.id_usuario
+            INNER JOIN Modos m
+                ON s.id_modo = m.id_modo
+            INNER JOIN Equipos e
+                ON s.id_equipo_creador = e.id_equipo
+            WHERE s.tipo = 'publica'
+              AND s.estado = 'Esperando'
+              AND s.id_creador <> ?
+            ORDER BY s.fecha_creacion DESC
+        `, [req.session.usuario.id_usuario]);
+
+        return res.json(salas);
+
+    } catch (error) {
+        console.error("Error al obtener las salas públicas:", error);
+
+        return res.status(500).json({
+            mensaje: "No se pudieron obtener las salas públicas."
+        });
+    }
+});
+
+
+// Crear una sala pública o privada
+app.post("/salas", async (req, res) => {
+    try {
+        if (!req.session.usuario) {
+            return res.status(401).json({
+                mensaje: "Tenés que iniciar sesión."
+            });
+        }
+
+        const idUsuario = Number(req.session.usuario.id_usuario);
+        const idEquipo = Number(req.body.id_equipo);
+        const idModo = Number(req.body.id_modo);
+        const tipo = req.body.tipo;
+
+        if (
+            !Number.isInteger(idEquipo) ||
+            idEquipo <= 0 ||
+            !Number.isInteger(idModo) ||
+            idModo <= 0 ||
+            !["publica", "privada"].includes(tipo)
+        ) {
+            return res.status(400).json({
+                mensaje: "Los datos de la sala no son válidos."
+            });
+        }
+
+        // Comprobar que el equipo pertenezca al usuario
+        // y al modo seleccionado.
+        const equipos = await realizarQuery(`
+            SELECT id_equipo, id_modo
+            FROM Equipos
+            WHERE id_equipo = ?
+              AND id_usuario = ?
+        `, [idEquipo, idUsuario]);
+
+        if (equipos.length === 0) {
+            return res.status(404).json({
+                mensaje: "No se encontró tu equipo."
+            });
+        }
+
+        if (Number(equipos[0].id_modo) !== idModo) {
+            return res.status(400).json({
+                mensaje: "El equipo no pertenece al modo seleccionado."
+            });
+        }
+
+        // Las salas privadas reciben un código aleatorio.
+        const codigo = tipo === "privada"
+            ? crypto.randomBytes(4).toString("hex").toUpperCase()
+            : null;
+
+        const resultado = await realizarQuery(`
+            INSERT INTO SalasMultijugador (
+                id_creador,
+                id_modo,
+                tipo,
+                codigo,
+                id_equipo_creador,
+                estado
+            )
+            VALUES (?, ?, ?, ?, ?, 'Esperando')
+        `, [
+            idUsuario,
+            idModo,
+            tipo,
+            codigo,
+            idEquipo
+        ]);
+
+        // Avisar a los usuarios conectados que cambió
+        // el listado de salas públicas.
+        io.emit("salasActualizadas");
+
+        return res.status(201).json({
+            mensaje: "Sala creada correctamente.",
+            id_sala: resultado.insertId,
+            tipo,
+            codigo
+        });
+
+    } catch (error) {
+        console.error("Error al crear la sala:", error);
+
+        return res.status(500).json({
+            mensaje: "No se pudo crear la sala."
+        });
+    }
+});
+
+
+// Función compartida para unirse a una sala.
+// Se utiliza tanto para salas públicas como privadas.
+async function completarSala(idSala, idUsuario, idEquipo, tipoEsperado) {
+
+    const resultado = await realizarTransaccion(async (conexion) => {
+
+        // Bloquear la sala mientras se procesa la unión.
+        // Así evitamos que dos usuarios ocupen el mismo lugar.
+        const [salas] = await conexion.execute(`
+            SELECT *
+            FROM SalasMultijugador
+            WHERE id_sala = ?
+            FOR UPDATE
+        `, [idSala]);
+
+        if (salas.length === 0) {
+            const error = new Error("No se encontró la sala.");
+            error.status = 404;
+            throw error;
+        }
+
+        const sala = salas[0];
+
+        if (sala.estado !== "Esperando") {
+            const error = new Error("Esta sala ya no está disponible.");
+            error.status = 409;
+            throw error;
+        }
+
+        if (sala.tipo !== tipoEsperado) {
+            const error = new Error("El tipo de sala no es válido.");
+            error.status = 400;
+            throw error;
+        }
+
+        if (Number(sala.id_creador) === idUsuario) {
+            const error = new Error("No podés unirte a tu propia sala.");
+            error.status = 400;
+            throw error;
+        }
+
+        // Comprobar que el equipo del segundo jugador sea suyo.
+        const [equipos] = await conexion.execute(`
+            SELECT id_equipo, id_modo
+            FROM Equipos
+            WHERE id_equipo = ?
+              AND id_usuario = ?
+        `, [idEquipo, idUsuario]);
+
+        if (equipos.length === 0) {
+            const error = new Error("No se encontró tu equipo.");
+            error.status = 404;
+            throw error;
+        }
+
+        if (Number(equipos[0].id_modo) !== Number(sala.id_modo)) {
+            const error = new Error(
+                "Tu equipo pertenece a un modo diferente al de la sala."
+            );
+            error.status = 400;
+            throw error;
+        }
+
+        // Comprobar que el equipo del creador siga existiendo
+        // y pertenezca al mismo modo.
+        const [equiposCreador] = await conexion.execute(`
+            SELECT id_equipo, id_modo
+            FROM Equipos
+            WHERE id_equipo = ?
+              AND id_usuario = ?
+        `, [sala.id_equipo_creador, sala.id_creador]);
+
+        if (
+            equiposCreador.length === 0 ||
+            Number(equiposCreador[0].id_modo) !== Number(sala.id_modo)
+        ) {
+            const error = new Error(
+                "El equipo del creador ya no está disponible."
+            );
+            error.status = 409;
+            throw error;
+        }
+
+        // Crear la partida multijugador.
+        // El creador será el equipo local y quien se une,
+        // el equipo visitante.
+        const [partidaCreada] = await conexion.execute(`
+            INSERT INTO Partidas (
+                equipo_local_id,
+                equipo_visitante_id,
+                tipo,
+                estado,
+                goles_local,
+                goles_visitante,
+                instancia,
+                ganador_penales
+            )
+            VALUES (?, ?, 1, 'En curso', 0, 0, NULL, NULL)
+        `, [
+            sala.id_equipo_creador,
+            idEquipo
+        ]);
+
+        const idPartida = partidaCreada.insertId;
+
+        // Marcar la sala como completa.
+        await conexion.execute(`
+            UPDATE SalasMultijugador
+            SET
+                id_usuario_visitante = ?,
+                id_equipo_visitante = ?,
+                id_partida = ?,
+                estado = 'Llena'
+            WHERE id_sala = ?
+        `, [
+            idUsuario,
+            idEquipo,
+            idPartida,
+            idSala
+        ]);
+
+        return {
+            id_sala: idSala,
+            id_partida: idPartida,
+            id_modo: Number(sala.id_modo),
+            id_creador: Number(sala.id_creador),
+            id_usuario_visitante: idUsuario
+        };
+    });
+
+    // Actualizar el listado público.
+    io.emit("salasActualizadas");
+
+    return resultado;
+}
+
+
+// Unirse a una sala pública
+app.post("/salas/:id/unirse", async (req, res) => {
+    try {
+        if (!req.session.usuario) {
+            return res.status(401).json({
+                mensaje: "Tenés que iniciar sesión."
+            });
+        }
+
+        const idSala = Number(req.params.id);
+        const idEquipo = Number(req.body.id_equipo);
+        const idUsuario = Number(req.session.usuario.id_usuario);
+
+        if (
+            !Number.isInteger(idSala) || idSala <= 0 ||
+            !Number.isInteger(idEquipo) || idEquipo <= 0
+        ) {
+            return res.status(400).json({
+                mensaje: "Los datos para unirse a la sala no son válidos."
+            });
+        }
+
+        const resultado = await completarSala(
+            idSala,
+            idUsuario,
+            idEquipo,
+            "publica"
+        );
+
+        return res.json({
+            mensaje: "Te uniste a la sala correctamente.",
+            ...resultado
+        });
+
+    } catch (error) {
+        console.error("Error al unirse a la sala pública:", error);
+
+        return res.status(error.status || 500).json({
+            mensaje: error.message || "No se pudo ingresar a la sala."
+        });
+    }
+});
+
+
+// Unirse a una sala privada mediante su código
+app.post("/salas/privadas/unirse", async (req, res) => {
+    try {
+        if (!req.session.usuario) {
+            return res.status(401).json({
+                mensaje: "Tenés que iniciar sesión."
+            });
+        }
+
+        const codigo = String(req.body.codigo || "")
+            .trim()
+            .toUpperCase();
+
+        const idEquipo = Number(req.body.id_equipo);
+        const idUsuario = Number(req.session.usuario.id_usuario);
+
+        if (
+            !/^[A-F0-9]{8}$/.test(codigo) ||
+            !Number.isInteger(idEquipo) ||
+            idEquipo <= 0
+        ) {
+            return res.status(400).json({
+                mensaje: "El código o el equipo no son válidos."
+            });
+        }
+
+        const salas = await realizarQuery(`
+            SELECT id_sala
+            FROM SalasMultijugador
+            WHERE codigo = ?
+              AND tipo = 'privada'
+              AND estado = 'Esperando'
+        `, [codigo]);
+
+        if (salas.length === 0) {
+            return res.status(404).json({
+                mensaje: "No se encontró una sala disponible con ese código."
+            });
+        }
+
+        const resultado = await completarSala(
+            Number(salas[0].id_sala),
+            idUsuario,
+            idEquipo,
+            "privada"
+        );
+
+        return res.json({
+            mensaje: "Te uniste a la sala privada correctamente.",
+            ...resultado
+        });
+
+    } catch (error) {
+        console.error("Error al unirse a la sala privada:", error);
+
+        return res.status(error.status || 500).json({
+            mensaje: error.message || "No se pudo ingresar a la sala privada."
+        });
+    }
+});
+
+
+// Cancelar una sala propia que todavía está esperando
+app.delete("/salas/:id", async (req, res) => {
+    try {
+        if (!req.session.usuario) {
+            return res.status(401).json({
+                mensaje: "Tenés que iniciar sesión."
+            });
+        }
+
+        const idSala = Number(req.params.id);
+        const idUsuario = Number(req.session.usuario.id_usuario);
+
+        if (!Number.isInteger(idSala) || idSala <= 0) {
+            return res.status(400).json({
+                mensaje: "El ID de la sala no es válido."
+            });
+        }
+
+        const resultado = await realizarQuery(`
+            UPDATE SalasMultijugador
+            SET estado = 'Cancelada'
+            WHERE id_sala = ?
+              AND id_creador = ?
+              AND estado = 'Esperando'
+        `, [idSala, idUsuario]);
+
+        if (resultado.affectedRows === 0) {
+            return res.status(404).json({
+                mensaje: "No se encontró una sala pendiente creada por vos."
+            });
+        }
+
+        io.emit("salasActualizadas");
+
+        return res.json({
+            mensaje: "Sala cancelada correctamente."
+        });
+
+    } catch (error) {
+        console.error("Error al cancelar la sala:", error);
+
+        return res.status(500).json({
+            mensaje: "No se pudo cancelar la sala."
+        });
+    }
+});
+
+
+/* =========================================================
+   CONSULTAR ESTADO DE UNA SALA
+   ========================================================= */
+
+app.get("/salas/:id", async (req, res) => {
+    try {
+        if (!req.session.usuario) {
+            return res.status(401).json({
+                mensaje: "Tenés que iniciar sesión."
+            });
+        }
+
+        const idSala = Number(req.params.id);
+        const idUsuario = Number(req.session.usuario.id_usuario);
+
+        if (!Number.isInteger(idSala) || idSala <= 0) {
+            return res.status(400).json({
+                mensaje: "El ID de la sala no es válido."
+            });
+        }
+
+        const salas = await realizarQuery(`
+            SELECT
+                id_sala,
+                id_creador,
+                id_usuario_visitante,
+                id_modo,
+                tipo,
+                codigo,
+                estado,
+                id_partida
+            FROM SalasMultijugador
+            WHERE id_sala = ?
+              AND (
+                  id_creador = ?
+                  OR id_usuario_visitante = ?
+              )
+        `, [idSala, idUsuario, idUsuario]);
+
+        if (salas.length === 0) {
+            return res.status(404).json({
+                mensaje: "No se encontró la sala o no tenés permiso para verla."
+            });
+        }
+
+        return res.json(salas[0]);
+
+    } catch (error) {
+        console.error("Error al consultar la sala:", error);
+
+        return res.status(500).json({
+            mensaje: "No se pudo consultar el estado de la sala."
+        });
+    }
+});
+
 
 /* =========================================================
    PARTIDAS: CREAR PARTIDA INDIVIDUAL CONTRA BOT
