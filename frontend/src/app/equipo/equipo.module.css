@@ -96,6 +96,7 @@
     display: grid;
     grid-template-columns: 1.45fr 1fr;
     gap: 12px;
+    container-type: inline-size;
 }
 
 .panelEquipo,
@@ -217,7 +218,14 @@
     font-size: 7px;
 }
 
-.ocupado{
+.ocupado {
+    background-color: #f5a623;
+    border-color: #ffd27a;
+    color: #172536;
+}
+
+/* Evita que el hover cambie el color de las posiciones ocupadas */
+.posicion.ocupado:hover {
     background-color: #f5a623;
     border-color: #ffd27a;
     color: #172536;
@@ -226,10 +234,6 @@
 .posicion span {
     margin-top: 2px;
     font-size: 6px;
-}
-
-.posicion:hover {
-    background: #24536a;
 }
 
 .bandeja h2 {
@@ -247,6 +251,12 @@
     display: flex;
     flex-direction: column;
     gap: 5px;
+    height: calc(55.63cqi - 27px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding-right: 5px;
+    scrollbar-color: #75d5f0 #071a2a;
+    scrollbar-width: thin;
 }
 
 .personaje {
@@ -306,6 +316,10 @@
 @media (max-width: 700px) {
     .columnas {
         grid-template-columns: 1fr;
+    }
+
+    .listaPersonajes {
+        height: calc(100cqi - 22px);
     }
 
     .cancha {

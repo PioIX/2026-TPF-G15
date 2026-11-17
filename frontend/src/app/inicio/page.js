@@ -41,14 +41,19 @@ useEffect(() => {
                 credentials: "include"
             });
 
-            console.log("Estado de respuesta:", respuesta.status);
+            // Si no hay sesión iniciada, simplemente no mostramos estadísticas.
+            if (respuesta.status === 401) {
+                setEstadisticas(null);
+                return;
+            }
 
             if (!respuesta.ok) {
-                throw new Error("No se pudieron obtener las estadísticas");
+                throw new Error(
+                    `El servidor respondió con el estado ${respuesta.status}`
+                );
             }
 
             const datos = await respuesta.json();
-            console.log("Estadísticas recibidas:", datos);
 
             setEstadisticas(datos);
 
