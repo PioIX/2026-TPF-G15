@@ -24,30 +24,46 @@ function generarPosiciones(formacion, estrategia) {
         y: 90,
     });
 
-    const distribucion = [
+    // Cada estrategia modifica la altura de las líneas.
+    const distribuciones = {
+        Defensiva: {
+            DEF: 80,
+            MED: 65,
+            DEL: 43,
+        },
+        Equilibrada: {
+            DEF: 72,
+            MED: 50,
+            DEL: 29,
+        },
+        Ofensiva: {
+            DEF: 62,
+            MED: 39,
+            DEL: 17,
+        },
+    };
+
+    const distribucionElegida =
+        distribuciones[estrategia] || distribuciones.Equilibrada;
+
+    const lineas = [
         {
             posicion: "DEF",
             cantidad: Number(formacion.cant_defensores),
-            y: estrategia === "Defensiva" ? 65 :
-                estrategia === "Ofensiva" ? 79 : 76
         },
         {
             posicion: "MED",
             cantidad: Number(formacion.cant_mediocampistas),
-            y: estrategia === "Defensiva" ? 43 :
-                estrategia === "Ofensiva" ? 57 : 57
         },
         {
             posicion: "DEL",
             cantidad: Number(formacion.cant_delanteros),
-            y: estrategia === "Defensiva" ? 23 :
-                estrategia === "Ofensiva" ? 17 : 30
         },
     ];
 
     let orden = 2;
 
-    distribucion.forEach((linea) => {
+    lineas.forEach((linea) => {
         for (let i = 0; i < linea.cantidad; i++) {
             const x = ((i + 1) * 100) / (linea.cantidad + 1);
 
@@ -55,7 +71,7 @@ function generarPosiciones(formacion, estrategia) {
                 orden,
                 posicion: linea.posicion,
                 x,
-                y: linea.y
+                y: distribucionElegida[linea.posicion],
             });
 
             orden++;
@@ -64,6 +80,7 @@ function generarPosiciones(formacion, estrategia) {
 
     return posiciones;
 }
+
 
 function EquipoContenido() {
     const router = useRouter();
@@ -242,65 +259,65 @@ function EquipoContenido() {
     // Confirmar y continuar al prepartido.
     async function confirmarEquipo() {
 
-    if (Object.keys(equipo).length !== 11) {
-        alert("Tenés que completar los 11 puestos antes de continuar");
-        return;
-    }
-
-    const equipoPreparado = {
-        id_modo: Number(id_modo),
-        id_formacion: Number(id_formacion),
-        estrategia,
-        tipoPartida,
-        personajes: Object.values(equipo).map((puesto) => ({
-            personaje_id: puesto.personaje_id,
-            posicion: puesto.posicion,
-            orden: puesto.orden,
-        })),
-    };
-
-    try {
-
-        // Enviar el equipo al backend
-        const respuesta = await fetch("http://localhost:4000/equipos", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-            },
-            credentials: "include",
-            body: JSON.stringify(equipoPreparado),
-        });
-
-        const datos = await respuesta.json();
-
-        // Comprobar si el backend respondió correctamente
-        if (!respuesta.ok) {
-            alert(datos.mensaje || "No se pudo crear el equipo");
+        if (Object.keys(equipo).length !== 11) {
+            alert("Tenés que completar los 11 puestos antes de continuar");
             return;
         }
 
-        // Guardar los datos para la página de prepartido
-        sessionStorage.setItem(
-            "equipoPendiente",
-            JSON.stringify({
-                ...equipoPreparado,
-                id_equipo: datos.id_equipo,
-            })
-        );
+        const equipoPreparado = {
+            id_modo: Number(id_modo),
+            id_formacion: Number(id_formacion),
+            estrategia,
+            tipoPartida,
+            personajes: Object.values(equipo).map((puesto) => ({
+                personaje_id: puesto.personaje_id,
+                posicion: puesto.posicion,
+                orden: puesto.orden,
+            })),
+        };
 
-        console.log("Equipo creado:", datos);
+        try {
 
-        // Ir al prepartido
-        router.push(`/prepartido?tipo=${tipoPartida}&modo=${id_modo}`);
+            // Enviar el equipo al backend
+            const respuesta = await fetch("http://localhost:4000/equipos", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                credentials: "include",
+                body: JSON.stringify(equipoPreparado),
+            });
 
-    } catch (error) {
+            const datos = await respuesta.json();
 
-        console.error("Error al crear el equipo:", error);
+            // Comprobar si el backend respondió correctamente
+            if (!respuesta.ok) {
+                alert(datos.mensaje || "No se pudo crear el equipo");
+                return;
+            }
 
-        alert("No se pudo conectar con el servidor. Revisá que el backend esté funcionando.");
+            // Guardar los datos para la página de prepartido
+            sessionStorage.setItem(
+                "equipoPendiente",
+                JSON.stringify({
+                    ...equipoPreparado,
+                    id_equipo: datos.id_equipo,
+                })
+            );
 
+            console.log("Equipo creado:", datos);
+
+            // Ir al prepartido
+            router.push(`/prepartido?tipo=${tipoPartida}&modo=${id_modo}`);
+
+        } catch (error) {
+
+            console.error("Error al crear el equipo:", error);
+
+            alert("No se pudo conectar con el servidor. Revisá que el backend esté funcionando.");
+
+        }
     }
-}
 
     return (
         <div className={styles.pagina}>
