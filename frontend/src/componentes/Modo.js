@@ -24,16 +24,19 @@ export default function Modo({ id_modo, titulo, subtitulo, descripcion }) {
             const datos = await respuesta.json();
 
             if (!respuesta.ok) {
-                throw new Error(datos.mensaje || "No se pudo consultar el torneo.");
+                throw new Error(
+                    datos.mensaje || "No se pudo consultar el torneo."
+                );
             }
 
-            // Si tiene una partida en curso, volver directamente.
+            // Si tiene una partida en curso, volver a ella.
             if (datos.pendiente && datos.accion === "partido") {
                 router.push(`/partido?id_partida=${datos.id_partida}`);
                 return;
             }
 
-            // Si ganó la instancia anterior, preparar la siguiente.
+            // Si tiene que continuar o comenzar el torneo,
+            // recuperar su equipo y entrar al prepartido.
             if (datos.pendiente && datos.accion === "prepartido") {
                 router.push(
                     `/prepartido?tipo=individual&modo=${datos.id_modo}&instancia=${datos.instancia}&id_equipo=${datos.id_equipo}`
@@ -44,9 +47,20 @@ export default function Modo({ id_modo, titulo, subtitulo, descripcion }) {
             // Si completó el torneo.
             if (datos.completado) {
                 alert("¡Felicitaciones! Completaste el torneo.");
+                router.push(`/equipo?id_modo=${id_modo}`);
+                return;
             }
 
-            // Si no tiene un torneo pendiente, elegir equipo.
+            // Si tiene equipo pero no hay una partida pendiente,
+            // comenzar desde Octavos con ese mismo equipo.
+            if (datos.id_equipo) {
+                router.push(
+                    `/prepartido?tipo=individual&modo=${id_modo}&instancia=Octavos&id_equipo=${datos.id_equipo}`
+                );
+                return;
+            }
+
+            // Si no tiene equipo, debe crear uno.
             router.push(`/equipo?id_modo=${id_modo}`);
 
         } catch (error) {
