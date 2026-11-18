@@ -1,150 +1,127 @@
 .page {
-  --background: #fafafa;
-  --foreground: #fff;
-
-  --text-primary: #000;
-  --text-secondary: #666;
-
-  --button-primary-hover: #383838;
-  --button-secondary-hover: #f2f2f2;
-  --button-secondary-border: #ebebeb;
-
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  font-family: var(--font-geist-sans);
-  background-color: var(--background);
+    min-height: 100vh;
+    padding: 0;
+    margin: 0;
+    background-color: #0b1c2a;
 }
 
 .main {
-  display: flex;
-  flex: 1;
-  width: 100%;
-  max-width: 800px;
-  flex-direction: column;
-  align-items: flex-start;
-  justify-content: space-between;
-  background-color: var(--foreground);
-  padding: 120px 60px;
+    min-height: 100vh;
+    width: 100%;
+    border: none;
+
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+
+    position: relative;
+    overflow: hidden;
+
+    background-image:
+        linear-gradient(
+            rgba(4, 20, 34, 0.88),
+            rgba(4, 20, 34, 0.91)
+        ),
+        url("/estadio.jpg");
+
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
 }
 
 .intro {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  text-align: left;
-  gap: 24px;
+    width: 90%;
+    max-width: 600px;
+    text-align: center;
+    color: #f2f5fa;
 }
 
 .intro h1 {
-  max-width: 320px;
-  font-size: 40px;
-  font-weight: 600;
-  line-height: 48px;
-  letter-spacing: -2.4px;
-  text-wrap: balance;
-  color: var(--text-primary);
+    display: inline-block;
+    background-color: #76501d;
+    color: #f6c65b;
+
+    font-size: 13px;
+    font-weight: 800;
+    text-transform: uppercase;
+
+    padding: 6px 11px;
+    border-radius: 20px;
+    margin-bottom: 12px;
 }
+
+.intro h2 {
+    font-size: 38px;
+    line-height: 1.3;
+    font-weight: 800;
+    margin: 0 0 16px;
+    color: #f2f5fa;
+}
+
+
 
 .intro p {
-  max-width: 440px;
-  font-size: 18px;
-  line-height: 32px;
-  text-wrap: balance;
-  color: var(--text-secondary);
-}
+    max-width: 500px;
+    margin: 0 auto 24px;
 
-.intro a {
-  font-weight: 500;
-  color: var(--text-primary);
+    font-size: 15px;
+    line-height: 1.5;
+    color: #dce5ed;
 }
 
 .ctas {
-  display: flex;
-  flex-direction: row;
-  width: 100%;
-  max-width: 440px;
-  gap: 16px;
-  font-size: 14px;
+    display: flex;
+    justify-content: center;
+    width: 100%;
+    margin-top: 20px;
 }
 
-.ctas a {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  height: 40px;
-  padding: 0 16px;
-  border-radius: 128px;
-  border: 1px solid transparent;
-  transition: 0.2s;
-  cursor: pointer;
-  width: fit-content;
-  font-weight: 500;
+.primary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+
+    background-color: #72d4ed;
+    color: #062033;
+
+    padding: 13px 19px;
+    border-radius: 9px;
+
+    font-size: 14px;
+    font-weight: 700;
+    text-decoration: none;
+
+    transition: background-color 0.2s ease,
+                transform 0.2s ease;
 }
 
-a.primary {
-  background: var(--text-primary);
-  color: var(--background);
-  gap: 8px;
+.primary:hover {
+    background-color: #9ae5f7;
+    transform: translateY(-2px);
 }
 
-a.secondary {
-  border-color: var(--button-secondary-border);
-}
-
-/* Enable hover only on non-touch devices */
-@media (hover: hover) and (pointer: fine) {
-  a.primary:hover {
-    background: var(--button-primary-hover);
-    border-color: transparent;
-  }
-
-  a.secondary:hover {
-    background: var(--button-secondary-hover);
-    border-color: transparent;
-  }
+.logo {
+    display: none;
 }
 
 @media (max-width: 600px) {
-  .main {
-    padding: 48px 24px;
-  }
+    .page {
+        padding: 10px;
+    }
 
-  .intro {
-    gap: 16px;
-  }
+    .main {
+        min-height: calc(100vh - 20px);
+    }
 
-  .intro h1 {
-    font-size: 32px;
-    line-height: 40px;
-    letter-spacing: -1.92px;
-  }
+    .intro h2 {
+        font-size: 27px;
+    }
+
+    .intro p {
+        font-size: 12px;
+    }
 }
-
-@media (prefers-color-scheme: dark) {
-  .logo {
-    filter: invert();
-  }
-
-  .page {
-    --background: #000;
-    --foreground: #000;
-
-    --text-primary: #ededed;
-    --text-secondary: #999;
-
-    --button-primary-hover: #ccc;
-    --button-secondary-hover: #1a1a1a;
-    --button-secondary-border: #1a1a1a;
-  }
-}
-
-.code {
-  font-family: var(--font-geist-mono);
-  font-size: 0.9em;
-  background: color-mix(in srgb, currentColor 8%, transparent);
-  padding: 0.1em 0.4em;
-  border-radius: 6px;
+.destacado {
+    color: #72d4ed;
 }
