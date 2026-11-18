@@ -2191,12 +2191,59 @@ function elegirDelantero(equipo) {
 }
 
 // Obtiene los datos de los dos equipos de una partida
+
+// Calcula el poder de ataque y defensa de un equipo
+function calcularEstadisticasEquipo(jugadores, estrategia) {
+    const cantidad = jugadores.length;
+
+    if (cantidad === 0) {
+        throw new Error("El equipo no tiene jugadores.");
+    }
+
+    const promedio = (atributo) =>
+        jugadores.reduce(
+            (total, jugador) => total + Number(jugador[atributo] || 0),
+            0
+        ) / cantidad;
+
+    const ataqueBase =
+        promedio("ataque") * 0.50 +
+        promedio("velocidad") * 0.20 +
+        promedio("habilidad") * 0.30;
+
+    const defensaBase =
+        promedio("defensa") * 0.60 +
+        promedio("velocidad") * 0.15 +
+        promedio("habilidad") * 0.25;
+
+    let multiplicadorAtaque = 1;
+    let multiplicadorDefensa = 1;
+
+    if (estrategia === "Defensiva") {
+        multiplicadorAtaque = 0.90;
+        multiplicadorDefensa = 1.12;
+    } else if (estrategia === "Ofensiva") {
+        multiplicadorAtaque = 1.12;
+        multiplicadorDefensa = 0.90;
+    }
+
+    return {
+        promedioHabilidad: promedio("habilidad"),
+        poderAtaque: ataqueBase * multiplicadorAtaque,
+        poderDefensa: defensaBase * multiplicadorDefensa
+    };
+}
+
+
+// Obtiene los datos de los dos equipos de una partida
 async function obtenerDatosPartida(idPartida) {
     const partidas = await realizarQuery(`
         SELECT
             p.*,
             el.nombre AS nombre_local,
-            ev.nombre AS nombre_visitante
+            el.estrategia AS estrategia_local,
+            ev.nombre AS nombre_visitante,
+            ev.estrategia AS estrategia_visitante
         FROM Partidas p
         INNER JOIN Equipos el
             ON p.equipo_local_id = el.id_equipo
@@ -2211,10 +2258,15 @@ async function obtenerDatosPartida(idPartida) {
 
     const partida = partidas[0];
 
+    // Obtener los jugadores y sus cuatro atributos.
     const jugadoresLocal = await realizarQuery(`
         SELECT
             per.id_personaje,
             per.nombre,
+            per.ataque,
+            per.defensa,
+            per.velocidad,
+            per.habilidad,
             ep.posicion,
             ep.orden
         FROM EquiposPersonajes ep
@@ -2228,6 +2280,10 @@ async function obtenerDatosPartida(idPartida) {
         SELECT
             per.id_personaje,
             per.nombre,
+            per.ataque,
+            per.defensa,
+            per.velocidad,
+            per.habilidad,
             ep.posicion,
             ep.orden
         FROM EquiposPersonajes ep
@@ -2237,20 +2293,57 @@ async function obtenerDatosPartida(idPartida) {
         ORDER BY ep.orden
     `, [partida.equipo_visitante_id]);
 
+    const equipoLocal = {
+        id: partida.equipo_local_id,
+        nombre: partida.nombre_local,
+        estrategia: partida.estrategia_local,
+        jugadores: jugadoresLocal
+    };
+
+    const equipoVisitante = {
+        id: partida.equipo_visitante_id,
+        nombre: partida.nombre_visitante,
+        estrategia: partida.estrategia_visitante,
+        jugadores: jugadoresVisitante
+    };
+
+    // Calcular los poderes de ambos equipos.
+    Object.assign(
+        equipoLocal,
+        calcularEstadisticasEquipo(
+            jugadoresLocal,
+            equipoLocal.estrategia
+        )
+    );
+
+    Object.assign(
+        equipoVisitante,
+        calcularEstadisticasEquipo(
+            jugadoresVisitante,
+            equipoVisitante.estrategia
+        )
+    );
+
+    console.log("Estadísticas de los equipos:", {
+        local: {
+            nombre: equipoLocal.nombre,
+            ataque: equipoLocal.poderAtaque,
+            defensa: equipoLocal.poderDefensa
+        },
+        visitante: {
+            nombre: equipoVisitante.nombre,
+            ataque: equipoVisitante.poderAtaque,
+            defensa: equipoVisitante.poderDefensa
+        }
+    });
+
     return {
         ...partida,
-        equipoLocal: {
-            id: partida.equipo_local_id,
-            nombre: partida.nombre_local,
-            jugadores: jugadoresLocal
-        },
-        equipoVisitante: {
-            id: partida.equipo_visitante_id,
-            nombre: partida.nombre_visitante,
-            jugadores: jugadoresVisitante
-        }
+        equipoLocal,
+        equipoVisitante
     };
 }
+
 
 // Guarda un evento en MySQL y lo comunica por Socket.IO
 async function guardarEvento(idPartida, evento) {
@@ -2292,19 +2385,47 @@ async function actualizarMarcador(idPartida, golesLocal, golesVisitante) {
     });
 }
 
-// Genera un evento aleatorio para un intervalo del partido
+
+// Genera un evento teniendo en cuenta la calidad de ambos equipos
 function generarEventoAleatorio(partida, minuto) {
     const equipoLocal = partida.equipoLocal;
     const equipoVisitante = partida.equipoVisitante;
 
-    const equipo = Math.random() < 0.5
+    // Calculamos cuánto peligro puede generar cada equipo.
+    // Se tiene en cuenta el ataque propio y la defensa rival.
+    const amenazaLocal =
+        equipoLocal.poderAtaque *
+        Math.max(10, 110 - equipoVisitante.poderDefensa);
+
+    const amenazaVisitante =
+        equipoVisitante.poderAtaque *
+        Math.max(10, 110 - equipoLocal.poderDefensa);
+
+    // Elegimos quién protagoniza el evento según su amenaza.
+    const probabilidadLocal =
+        amenazaLocal / (amenazaLocal + amenazaVisitante);
+
+    const equipo = Math.random() < probabilidadLocal
         ? equipoLocal
         : equipoVisitante;
 
+    const rival = equipo === equipoLocal
+        ? equipoVisitante
+        : equipoLocal;
+
     const nombreEquipo = equipo.nombre;
 
-    // 15% de probabilidad de un gol normal
-    if (Math.random() * 100 < 15) {
+    // Probabilidad de gol según el ataque propio y la defensa rival.
+    const diferencia =
+        equipo.poderAtaque - rival.poderDefensa;
+
+    const probabilidadGol = Math.max(
+        4,
+        Math.min(16, 8 + diferencia * 0.08)
+    );
+
+    // Gol normal.
+    if (Math.random() * 100 < probabilidadGol) {
         const jugador = elegirDelantero(equipo);
 
         return {
@@ -2353,10 +2474,17 @@ function generarEventoAleatorio(partida, minuto) {
 
     // Tiro libre: 21%
     if (azar < 93) {
+        const habilidad = Number(equipo.promedioHabilidad);
+
+        const probabilidadGolTiroLibre = Math.max(
+            10,
+            Math.min(35, 15 + habilidad * 0.15)
+        );
+
         const resultado = Math.random() * 100;
 
-        // 20%: gol directo
-        if (resultado < 20) {
+        // Gol directo.
+        if (resultado < probabilidadGolTiroLibre) {
             const jugador = elegirDelantero(equipo);
 
             return {
@@ -2369,7 +2497,7 @@ function generarEventoAleatorio(partida, minuto) {
             };
         }
 
-        // 30%: pelota al centro del área
+        // Pelota al área.
         if (resultado < 50) {
             return {
                 minuto,
@@ -2379,7 +2507,7 @@ function generarEventoAleatorio(partida, minuto) {
             };
         }
 
-        // 5%: gol de cabeza
+        // Gol de cabeza.
         if (resultado < 55) {
             const jugador = elegirJugador(equipo);
 
@@ -2393,7 +2521,6 @@ function generarEventoAleatorio(partida, minuto) {
             };
         }
 
-        // 45%: tiro libre desperdiciado
         return {
             minuto,
             tipo_evento: "TIRO_LIBRE",
@@ -2403,7 +2530,14 @@ function generarEventoAleatorio(partida, minuto) {
     }
 
     // Penal: 7%
-    const convierte = Math.random() < 0.5;
+    const habilidad = Number(equipo.promedioHabilidad);
+
+    const probabilidadPenal = Math.max(
+        35,
+        Math.min(80, 55 + (habilidad - rival.promedioHabilidad) * 0.25)
+    );
+
+    const convierte = Math.random() * 100 < probabilidadPenal;
 
     if (convierte) {
         const jugador = elegirDelantero(equipo);
