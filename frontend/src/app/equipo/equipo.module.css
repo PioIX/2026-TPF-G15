@@ -274,6 +274,18 @@
     border-color: #75d5f0;
 }
 
+.posicionNatural {
+    display: inline-block;
+    margin: 0 0 6px;
+    padding: 3px 7px;
+    border-radius: 5px;
+    background: #24536a;
+    color: #9de7f5;
+    font-size: 9px;
+    font-weight: bold;
+    letter-spacing: 0.4px;
+}
+
 .personaje h4 {
     margin: 0 0 5px;
     font-size: 11px;
