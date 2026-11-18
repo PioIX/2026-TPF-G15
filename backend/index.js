@@ -1829,45 +1829,94 @@ app.post("/partidas/individual", async (req, res) => {
             });
         }
 
-        // 8. Elegir 11 personajes aleatorios del mismo modo
+        // 8. Obtener los personajes que ya eligió el usuario
+        const personajesUsuario = await realizarQuery(
+            `SELECT personaje_id
+            FROM EquiposPersonajes
+            WHERE equipo_id = ?`,
+            [id_equipo]
+        );
+
+        const idsPersonajesUsuario = personajesUsuario.map(
+            personaje => Number(personaje.personaje_id)
+        );
+
+        if (idsPersonajesUsuario.length !== 11) {
+            return res.status(400).json({
+                mensaje: "Tu equipo no tiene exactamente 11 personajes"
+            });
+        }
+
+        // 9. Elegir 11 personajes aleatorios del mismo modo,
+        // excluyendo los que ya utiliza el usuario.
+        const placeholders = idsPersonajesUsuario.map(() => "?").join(", ");
+
         const personajesBot = await realizarQuery(
             `SELECT
-                id_personaje,
-                nombre,
-                posicion_natural,
-                ataque,
-                defensa,
-                velocidad,
-                habilidad
-             FROM Personajes
-             WHERE id_modo = ?
-             ORDER BY RAND()
-             LIMIT 11`,
-            [id_modo]
+            id_personaje,
+            nombre,
+            posicion_natural,
+            ataque,
+            defensa,
+            velocidad,
+            habilidad
+            FROM Personajes
+            WHERE id_modo = ?
+            AND id_personaje NOT IN (${placeholders})
+            ORDER BY RAND()
+            LIMIT 11`,
+            [id_modo, ...idsPersonajesUsuario]
         );
 
         if (personajesBot.length < 11) {
             return res.status(400).json({
-                mensaje: "No hay suficientes personajes en este modo para generar un equipo rival"
+                mensaje: "No hay suficientes personajes distintos para generar el equipo rival"
+            });
+        }
+        const nombreBot = `Bot - ${instancia} - ${equipoUsuario.nombre_modo}`;
+        // Elegir una estrategia y formacion aleatoria para el bot
+        const formacionesBot = await realizarQuery(
+            `SELECT
+        id_formacion,
+        cant_defensores,
+        cant_mediocampistas,
+        cant_delanteros
+        FROM Formaciones`
+        );
+
+        if (formacionesBot.length === 0) {
+            return res.status(500).json({
+                mensaje: "No hay formaciones disponibles para el bot"
             });
         }
 
-        // 9. Armar las posiciones según la formación del usuario
+        const formacionBot = formacionesBot[Math.floor(Math.random() * formacionesBot.length)];
+
+        const estrategiasBot = [
+            "Equilibrada",
+            "Defensiva",
+            "Ofensiva"
+        ];
+        // Generar las posiciones según la formación elegida para el bot.
         const posicionesBot = [
             "ARQ",
-            ...Array(equipoUsuario.cant_defensores).fill("DEF"),
-            ...Array(equipoUsuario.cant_mediocampistas).fill("MED"),
-            ...Array(equipoUsuario.cant_delanteros).fill("DEL")
+            ...Array(Number(formacionBot.cant_defensores)).fill("DEF"),
+            ...Array(Number(formacionBot.cant_mediocampistas)).fill("MED"),
+            ...Array(Number(formacionBot.cant_delanteros)).fill("DEL")
         ];
 
-        if (posicionesBot.length !== 11) {
+        if (
+            posicionesBot.length !== 11 ||
+            Number(formacionBot.cant_defensores) +
+            Number(formacionBot.cant_mediocampistas) +
+            Number(formacionBot.cant_delanteros) !== 10
+        ) {
             return res.status(400).json({
-                mensaje: "La formación seleccionada no tiene una distribución válida"
+                mensaje: "La formación del bot no tiene una distribución válida"
             });
         }
 
-        const nombreBot = `Bot - ${instancia} - ${equipoUsuario.nombre_modo}`;
-
+        const estrategiaBot = estrategiasBot[Math.floor(Math.random() * estrategiasBot.length)];
         // 10. Crear el equipo BOT y la partida en una transacción
         const resultado = await realizarTransaccion(async (conexion) => {
 
@@ -1879,8 +1928,8 @@ app.post("/partidas/individual", async (req, res) => {
                 [
                     5,
                     id_modo,
-                    equipoUsuario.id_formacion,
-                    equipoUsuario.estrategia,
+                    formacionBot.id_formacion,
+                    estrategiaBot,
                     nombreBot
                 ]
             );
@@ -2193,28 +2242,53 @@ function elegirDelantero(equipo) {
 // Obtiene los datos de los dos equipos de una partida
 
 // Calcula el poder de ataque y defensa de un equipo
-function calcularEstadisticasEquipo(jugadores, estrategia) {
-    const cantidad = jugadores.length;
 
-    if (cantidad === 0) {
-        throw new Error("El equipo no tiene jugadores.");
+function calcularEstadisticasEquipo(jugadores, estrategia) {
+    const pesoAtaque = {
+        ARQ: 0.20,
+        DEF: 0.55,
+        MED: 1.00,
+        DEL: 1.35
+    };
+
+    const pesoDefensa = {
+        ARQ: 1.50,
+        DEF: 1.35,
+        MED: 1.00,
+        DEL: 0.55
+    };
+
+    function promedioPonderado(atributo, pesos) {
+        let sumaValores = 0;
+        let sumaPesos = 0;
+
+        jugadores.forEach((jugador) => {
+            const peso = pesos[jugador.posicion] ?? 1;
+            const valor = Number(jugador[atributo]) || 0;
+
+            sumaValores += valor * peso;
+            sumaPesos += peso;
+        });
+
+        return sumaPesos > 0 ? sumaValores / sumaPesos : 0;
     }
 
-    const promedio = (atributo) =>
-        jugadores.reduce(
-            (total, jugador) => total + Number(jugador[atributo] || 0),
-            0
-        ) / cantidad;
-
+    // Estadísticas ofensivas
     const ataqueBase =
-        promedio("ataque") * 0.50 +
-        promedio("velocidad") * 0.20 +
-        promedio("habilidad") * 0.30;
+        promedioPonderado("ataque", pesoAtaque) * 0.5 +
+        promedioPonderado("velocidad", pesoAtaque) * 0.2 +
+        promedioPonderado("habilidad", pesoAtaque) * 0.3;
 
+    // Estadísticas defensivas
     const defensaBase =
-        promedio("defensa") * 0.60 +
-        promedio("velocidad") * 0.15 +
-        promedio("habilidad") * 0.25;
+        promedioPonderado("defensa", pesoDefensa) * 0.6 +
+        promedioPonderado("velocidad", pesoDefensa) * 0.15 +
+        promedioPonderado("habilidad", pesoDefensa) * 0.25;
+
+    const habilidadPromedio =
+        jugadores.reduce((suma, jugador) => {
+            return suma + (Number(jugador.habilidad) || 0);
+        }, 0) / jugadores.length;
 
     let multiplicadorAtaque = 1;
     let multiplicadorDefensa = 1;
@@ -2228,9 +2302,9 @@ function calcularEstadisticasEquipo(jugadores, estrategia) {
     }
 
     return {
-        promedioHabilidad: promedio("habilidad"),
-        poderAtaque: ataqueBase * multiplicadorAtaque,
-        poderDefensa: defensaBase * multiplicadorDefensa
+        poderAtaque: Number((ataqueBase * multiplicadorAtaque).toFixed(2)),
+        poderDefensa: Number((defensaBase * multiplicadorDefensa).toFixed(2)),
+        promedioHabilidad: Number(habilidadPromedio.toFixed(2))
     };
 }
 
@@ -2387,21 +2461,26 @@ async function actualizarMarcador(idPartida, golesLocal, golesVisitante) {
 
 
 // Genera un evento teniendo en cuenta la calidad de ambos equipos
+
 function generarEventoAleatorio(partida, minuto) {
     const equipoLocal = partida.equipoLocal;
     const equipoVisitante = partida.equipoVisitante;
 
-    // Calculamos cuánto peligro puede generar cada equipo.
-    // Se tiene en cuenta el ataque propio y la defensa rival.
+    // ==========================================
+    // 1. CALCULAR EL PELIGRO DE CADA EQUIPO
+    // ==========================================
+
     const amenazaLocal =
         equipoLocal.poderAtaque *
-        Math.max(10, 110 - equipoVisitante.poderDefensa);
+        Math.max(10, 110 - equipoVisitante.poderDefensa) *
+        (0.85 + equipoLocal.promedioHabilidad / 300);
 
     const amenazaVisitante =
         equipoVisitante.poderAtaque *
-        Math.max(10, 110 - equipoLocal.poderDefensa);
+        Math.max(10, 110 - equipoLocal.poderDefensa) *
+        (0.85 + equipoVisitante.promedioHabilidad / 300);
 
-    // Elegimos quién protagoniza el evento según su amenaza.
+    // Elegir quién protagoniza el evento.
     const probabilidadLocal =
         amenazaLocal / (amenazaLocal + amenazaVisitante);
 
@@ -2415,16 +2494,27 @@ function generarEventoAleatorio(partida, minuto) {
 
     const nombreEquipo = equipo.nombre;
 
-    // Probabilidad de gol según el ataque propio y la defensa rival.
-    const diferencia =
+    // ==========================================
+    // 2. PROBABILIDAD DE GOL
+    // ==========================================
+
+    const diferenciaAtaque =
         equipo.poderAtaque - rival.poderDefensa;
 
-    const probabilidadGol = Math.max(
+    const diferenciaHabilidad =
+        equipo.promedioHabilidad - rival.promedioHabilidad;
+
+    let probabilidadGol =
+        8 +
+        diferenciaAtaque * 0.18 +
+        diferenciaHabilidad * 0.04;
+
+    probabilidadGol = Math.max(
         4,
-        Math.min(16, 8 + diferencia * 0.08)
+        Math.min(18, probabilidadGol)
     );
 
-    // Gol normal.
+    // Intento de gol normal.
     if (Math.random() * 100 < probabilidadGol) {
         const jugador = elegirDelantero(equipo);
 
@@ -2437,20 +2527,76 @@ function generarEventoAleatorio(partida, minuto) {
         };
     }
 
-    const azar = Math.random() * 100;
+    // ==========================================
+    // 3. DISTRIBUCIÓN DE LOS DEMÁS EVENTOS
+    // ==========================================
 
-    // Ataque: 35%
-    if (azar < 35) {
+    const probabilidades = {
+        ATAQUE: 35,
+        TARJETA: 17,
+        CORNER: 20,
+        TIRO_LIBRE: 21,
+        PENAL: 7
+    };
+
+    // Modificar la distribución según la estrategia.
+    if (equipo.estrategia === "Ofensiva") {
+        probabilidades.ATAQUE *= 1.25;
+        probabilidades.CORNER *= 1.15;
+        probabilidades.TIRO_LIBRE *= 1.10;
+        probabilidades.TARJETA *= 0.90;
+    }
+
+    if (equipo.estrategia === "Defensiva") {
+        probabilidades.ATAQUE *= 0.85;
+        probabilidades.CORNER *= 0.90;
+        probabilidades.TIRO_LIBRE *= 0.95;
+        probabilidades.TARJETA *= 1.15;
+    }
+
+    const totalProbabilidades = Object.values(probabilidades)
+        .reduce((suma, valor) => suma + valor, 0);
+
+    let azar = Math.random() * totalProbabilidades;
+
+    // Elegir el tipo de evento.
+    let tipoEvento = "PENAL";
+
+    for (const [tipo, probabilidad] of Object.entries(probabilidades)) {
+        azar -= probabilidad;
+
+        if (azar < 0) {
+            tipoEvento = tipo;
+            break;
+        }
+    }
+
+    // ==========================================
+    // 4. ATAQUE
+    // ==========================================
+
+    if (tipoEvento === "ATAQUE") {
+        const mensajes = [
+            "¡Gran jugada colectiva! El equipo avanza al área rival.",
+            "¡Remate al arco! El arquero responde y evita el gol.",
+            "El equipo recupera la pelota y sale de contraataque.",
+            "¡Peligro en el área! La defensa logra despejar la pelota.",
+            "El equipo intenta una combinación ofensiva, pero pierde la pelota."
+        ];
+
         return {
             minuto,
             tipo_evento: "ATAQUE",
-            descripcion: `${nombreEquipo}: ${elegirElemento(eventosAtaque)}`,
+            descripcion: `${nombreEquipo}: ${elegirElemento(mensajes)}`,
             equipo: nombreEquipo
         };
     }
 
-    // Tarjeta amarilla: 17%
-    if (azar < 52) {
+    // ==========================================
+    // 5. TARJETA AMARILLA
+    // ==========================================
+
+    if (tipoEvento === "TARJETA") {
         const jugador = elegirJugador(equipo);
 
         return {
@@ -2462,8 +2608,11 @@ function generarEventoAleatorio(partida, minuto) {
         };
     }
 
-    // Córner: 20%
-    if (azar < 72) {
+    // ==========================================
+    // 6. CÓRNER
+    // ==========================================
+
+    if (tipoEvento === "CORNER") {
         return {
             minuto,
             tipo_evento: "CORNER",
@@ -2472,18 +2621,30 @@ function generarEventoAleatorio(partida, minuto) {
         };
     }
 
-    // Tiro libre: 21%
-    if (azar < 93) {
+    // ==========================================
+    // 7. TIRO LIBRE
+    // ==========================================
+
+    if (tipoEvento === "TIRO_LIBRE") {
         const habilidad = Number(equipo.promedioHabilidad);
 
         const probabilidadGolTiroLibre = Math.max(
-            10,
-            Math.min(35, 15 + habilidad * 0.15)
+            8,
+            Math.min(
+                30,
+                10 +
+                (habilidad - rival.poderDefensa) * 0.12 +
+                (equipo.poderAtaque - rival.poderDefensa) * 0.05
+            )
+        );
+
+        const probabilidadGolCabeza = Math.max(
+            4,
+            Math.min(12, 4 + habilidad * 0.07)
         );
 
         const resultado = Math.random() * 100;
 
-        // Gol directo.
         if (resultado < probabilidadGolTiroLibre) {
             const jugador = elegirDelantero(equipo);
 
@@ -2497,8 +2658,7 @@ function generarEventoAleatorio(partida, minuto) {
             };
         }
 
-        // Pelota al área.
-        if (resultado < 50) {
+        if (resultado < probabilidadGolTiroLibre + 40) {
             return {
                 minuto,
                 tipo_evento: "TIRO_LIBRE",
@@ -2507,8 +2667,10 @@ function generarEventoAleatorio(partida, minuto) {
             };
         }
 
-        // Gol de cabeza.
-        if (resultado < 55) {
+        if (
+            resultado <
+            probabilidadGolTiroLibre + 40 + probabilidadGolCabeza
+        ) {
             const jugador = elegirJugador(equipo);
 
             return {
@@ -2529,12 +2691,18 @@ function generarEventoAleatorio(partida, minuto) {
         };
     }
 
-    // Penal: 7%
-    const habilidad = Number(equipo.promedioHabilidad);
+    // ==========================================
+    // 8. PENAL
+    // ==========================================
 
     const probabilidadPenal = Math.max(
-        35,
-        Math.min(80, 55 + (habilidad - rival.promedioHabilidad) * 0.25)
+        60,
+        Math.min(
+            90,
+            72 +
+            (equipo.promedioHabilidad - rival.promedioHabilidad) * 0.25 +
+            (equipo.poderAtaque - rival.poderDefensa) * 0.05
+        )
     );
 
     const convierte = Math.random() * 100 < probabilidadPenal;
