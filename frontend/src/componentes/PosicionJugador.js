@@ -1,9 +1,11 @@
-export default function PosicionJugador ({posicion, personaje, seleccionada, onClick}){
+import styles from "@/app/equipo/equipo.module.css";
+
+export default function PosicionJugador ({posicion, personaje, seleccionada, ocupado, onClick}){
     return (
         <div>
-            <button type="button" className={styles.posicion} onClick={onClick} aria-pressed={seleccionada}>
-                <strong>{jugador ? jugador.nombre : posicion}</strong>
-                <span>{jugador ? "Asignado" : "Asignar"}</span>
+            <button type="button" className={`${styles.posicion} ${ocupado ? styles.ocupado : ""}`} onClick={onClick} aria-pressed={seleccionada}>
+                <strong>{personaje ? personaje.nombre : posicion}</strong>
+                <span>{personaje ? "Asignado" : "Asignar"}</span>
             </button>
         </div>
     )

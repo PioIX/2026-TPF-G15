@@ -5,11 +5,15 @@ import styles from "./inicio.module.css";
 import Modo from "@/componentes/Modo";
 import EstadisticasTemporada from "@/componentes/EstadisticasTemporada";
 import PanelAdmin from "@/componentes/PanelAdmin";
+import Link from "next/link";
+
 
 export default function InicioPage() {
     const [modo, setModo] = useState("");
     const [panelAbierto, setPanelAbierto] = useState(false);
     const [esAdmin, setEsAdmin] = useState(false);
+    const [estadisticas, setEstadisticas] = useState(null);
+    const [cargandoEstadisticas, setCargandoEstadisticas] = useState(true);
 
     useEffect(() => {
         async function comprobarAdmin() {
@@ -28,12 +32,72 @@ export default function InicioPage() {
         comprobarAdmin();
     }, []);
 
+useEffect(() => {
+    async function obtenerEstadisticas() {
+        console.log("Ejecutando obtenerEstadisticas...");
+
+        try {
+            const respuesta = await fetch("http://localhost:4000/estadisticas", {
+                credentials: "include"
+            });
+
+            // Si no hay sesión iniciada, simplemente no mostramos estadísticas.
+            if (respuesta.status === 401) {
+                setEstadisticas(null);
+                return;
+            }
+
+            if (!respuesta.ok) {
+                throw new Error(
+                    `El servidor respondió con el estado ${respuesta.status}`
+                );
+            }
+
+            const datos = await respuesta.json();
+
+            setEstadisticas(datos);
+
+        } catch (error) {
+            console.error("Error al obtener las estadísticas:", error);
+        } finally {
+            setCargandoEstadisticas(false);
+        }
+    }
+
+    obtenerEstadisticas();
+}, []);
+
     return (
         <main className={styles.inicio}>
+            <nav
+                className={styles.navbar}
+                aria-label="Navegación principal"
+            >
+                <Link href="/inicio" className={`${styles.enlaceNav} ${styles.activo}`}>
+                    Inicio
+                </Link>
+
+                <Link href="/equipo" className={styles.enlaceNav}>
+                    Mi equipo
+                </Link>
+
+                <Link href="/partido" className={styles.enlaceNav}>
+                    Partidas
+                </Link>
+
+                <Link
+                    href="/ranking"
+                    className={styles.enlaceNav}
+                >
+                    Ranking
+                </Link>
+
+                <Link href="/perfil" className={styles.enlaceNav}>
+                    Perfil
+                </Link>
+            </nav>
             <header className={styles["inicio-encabezado"]}>
-                <span className={styles["inicio-etiqueta"]}>
-                    PROTOTIPO · DATOS FICTICIOS
-                </span>
+                <br />
 
                 <h2>Elegí tu desafío</h2>
 
@@ -57,6 +121,7 @@ export default function InicioPage() {
             <section className={styles["inicio-modos"]}>
                 <div className={`${styles["inicio-modo"]} ${styles["inicio-modo-historia"]}`}>
                     <Modo
+                        id_modo={1}
                         titulo="Modo historia"
                         subtitulo="Próceres argentinos"
                         descripcion="Un equipo de figuras históricas imaginadas en la cancha."
@@ -65,6 +130,7 @@ export default function InicioPage() {
 
                 <div className={`${styles["inicio-modo"]} ${styles["inicio-modo-escuela"]}`}>
                     <Modo
+                        id_modo={2}
                         titulo="Modo escuela"
                         subtitulo="Profes del Pío IX"
                         descripcion="Un plantel ficticio inspirado en el espíritu del fútbol salesiano."
@@ -74,30 +140,15 @@ export default function InicioPage() {
 
             <section className={styles["inicio-estadisticas"]}>
                 <div className={styles["inicio-estadisticas-encabezado"]}>
-                    <h3>Tu temporada · ejemplo</h3>
-                    <span>Estadísticas de demostración</span>
+                    <h3>Tu temporada </h3>
                 </div>
-
-                <EstadisticasTemporada
-                    estadisticas={{
-                        puntos: 100,
-                        victorias: 3,
-                        partidasJugadas: 5,
-                        ranking: 2
-                    }}
-                />
-            </section>
-
-            <section className={styles["inicio-descripcion"]}>
-                <h3>La visión del juego</h3>
-
-                <p>
-                    Este prototipo representa acceso de jugadores, juego
-                    individual y multijugador, partidos en tiempo real mediante
-                    WebSockets, puntaje, ranking, historial, catálogo de
-                    personajes y administración. Las funciones conectadas se
-                    muestran como demostración visual.
-                </p>
+                {cargandoEstadisticas ? (
+                    <p>Cargando estadísticas...</p>
+                ) : estadisticas ? (
+                    <EstadisticasTemporada estadisticas={estadisticas} />
+                ) : (
+                    <p>No se pudieron cargar las estadísticas.</p>
+                )}
             </section>
 
             <PanelAdmin
