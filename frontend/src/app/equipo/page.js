@@ -328,7 +328,9 @@ function EquipoContenido() {
 
         <nav className={styles.nav}>
           <Link href="/inicio">Inicio</Link>
-          <span className={styles.activo}>Mi equipo</span>
+          <Link href="/equipo" className={styles.activo}>
+            Mi equipo
+          </Link>
           <Link href="/ranking">Rankings</Link>
           <Link href="/perfil">Perfil</Link>
         </nav>

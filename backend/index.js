@@ -1457,69 +1457,6 @@ app.post("/salas/:id/unirse", async (req, res) => {
         });
     }
 });
-
-
-// Unirse a una sala privada mediante su código
-app.post("/salas/privadas/unirse", async (req, res) => {
-    try {
-        if (!req.session.usuario) {
-            return res.status(401).json({
-                mensaje: "Tenés que iniciar sesión."
-            });
-        }
-
-        const codigo = String(req.body.codigo || "")
-            .trim()
-            .toUpperCase();
-
-        const idEquipo = Number(req.body.id_equipo);
-        const idUsuario = Number(req.session.usuario.id_usuario);
-
-        if (
-            !/^[A-F0-9]{8}$/.test(codigo) ||
-            !Number.isInteger(idEquipo) ||
-            idEquipo <= 0
-        ) {
-            return res.status(400).json({
-                mensaje: "El código o el equipo no son válidos."
-            });
-        }
-
-        const salas = await realizarQuery(`
-            SELECT id_sala
-            FROM SalasMultijugador
-            WHERE codigo = ?
-              AND tipo = 'privada'
-              AND estado = 'Esperando'
-        `, [codigo]);
-
-        if (salas.length === 0) {
-            return res.status(404).json({
-                mensaje: "No se encontró una sala disponible con ese código."
-            });
-        }
-
-        const resultado = await completarSala(
-            Number(salas[0].id_sala),
-            idUsuario,
-            idEquipo,
-            "privada"
-        );
-
-        return res.json({
-            mensaje: "Te uniste a la sala privada correctamente.",
-            ...resultado
-        });
-
-    } catch (error) {
-        console.error("Error al unirse a la sala privada:", error);
-
-        return res.status(error.status || 500).json({
-            mensaje: error.message || "No se pudo ingresar a la sala privada."
-        });
-    }
-});
-
 // Unirse a una sala privada mediante su código
 app.post("/salas/privadas/unirse", async (req, res) => {
     try {
@@ -1551,7 +1488,6 @@ app.post("/salas/privadas/unirse", async (req, res) => {
             });
         }
 
-        // Buscar el código ignorando mayúsculas y espacios.
         const salas = await realizarQuery(`
             SELECT id_sala
             FROM SalasMultijugador
@@ -1586,7 +1522,6 @@ app.post("/salas/privadas/unirse", async (req, res) => {
         });
     }
 });
-
 
 // Cancelar una sala propia que todavía está esperando
 app.delete("/salas/:id", async (req, res) => {

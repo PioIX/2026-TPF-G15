@@ -77,18 +77,8 @@ useEffect(() => {
                     Inicio
                 </Link>
 
-                <Link href="/equipo" className={styles.enlaceNav}>
-                    Mi equipo
-                </Link>
-
-                <Link href="/partido" className={styles.enlaceNav}>
-                    Partidas
-                </Link>
-
                 <Link
-                    href="/ranking"
-                    className={styles.enlaceNav}
-                >
+                    href="/ranking" className={styles.enlaceNav}>
                     Ranking
                 </Link>
 
