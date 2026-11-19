@@ -181,18 +181,8 @@ export default function RankingPage() {
                     Inicio
                 </Link>
 
-                <Link href="/equipo" className={styles.enlaceNav}>
-                    Mi equipo
-                </Link>
-
-                <Link href="/partido" className={styles.enlaceNav}>
-                    Partidas
-                </Link>
-
                 <Link
-                    href="/ranking"
-                    className={`${styles.enlaceNav} ${styles.activo}`}
-                >
+                    href="/ranking" className={`${styles.enlaceNav} ${styles.activo}`}>
                     Ranking
                 </Link>
 
