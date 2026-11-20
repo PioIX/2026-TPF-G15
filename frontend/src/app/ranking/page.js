@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import styles from "./ranking.module.css";
+import Image from "next/image";
 
 const API = "http://localhost:4000";
 
@@ -176,7 +177,15 @@ export default function RankingPage() {
             <header className={styles.encabezadoSuperior}>
                 <div className={styles.barraSuperior}>
                     <div className={styles.marca}>
-                        <div className={styles.logo}>AFC</div>
+                        <div className={styles.logo}>
+                            <Image
+                                src="/logo_argentina_fc.png"
+                                alt="Logo de Argentina FC"
+                                width={67}
+                                height={67}
+                                priority
+                            />
+                        </div>
 
                         <div>
                             <h1>Argentina FC</h1>

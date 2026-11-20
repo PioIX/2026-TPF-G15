@@ -6,6 +6,7 @@ import Modo from "@/componentes/Modo";
 import EstadisticasTemporada from "@/componentes/EstadisticasTemporada";
 import PanelAdmin from "@/componentes/PanelAdmin";
 import Link from "next/link";
+import Image from "next/image";
 
 
 export default function InicioPage() {
@@ -72,7 +73,15 @@ export default function InicioPage() {
             <header className={styles["inicio-encabezado-superior"]}>
                 <div className={styles["inicio-barra-superior"]}>
                     <div className={styles.marca}>
-                        <div className={styles.logo}>AFC</div>
+                        <div className={styles.logo}>
+                            <Image
+                                src="/logo_argentina_fc.png"
+                                alt="Logo de Argentina FC"
+                                width={67}
+                                height={67}
+                                priority
+                            />
+                        </div>
 
                         <div>
                             <h1>Argentina FC</h1>

@@ -4,6 +4,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import styles from "./perfil.module.css";
+import Image from "next/image";
 
 const API = "http://localhost:4000";
 
@@ -64,9 +65,9 @@ export default function PerfilPage() {
                 const jugadores = Array.isArray(datosRanking)
                     ? datosRanking
                     : datosRanking.ranking ||
-                      datosRanking.usuarios ||
-                      datosRanking.data ||
-                      [];
+                    datosRanking.usuarios ||
+                    datosRanking.data ||
+                    [];
 
                 const idUsuario = datosUsuario.id_usuario ?? datosUsuario.id;
 
@@ -74,7 +75,7 @@ export default function PerfilPage() {
                     const mismoId =
                         idUsuario !== undefined &&
                         String(jugador.id_usuario ?? jugador.id) ===
-                            String(idUsuario);
+                        String(idUsuario);
 
                     const mismoNombre =
                         obtenerNombreJugador(jugador) ===
@@ -156,7 +157,15 @@ export default function PerfilPage() {
             <header className={styles.encabezadoSuperior}>
                 <div className={styles.barraSuperior}>
                     <div className={styles.marca}>
-                        <div className={styles.logo}>AFC</div>
+                        <div className={styles.logo}>
+                            <Image
+                                src="/logo_argentina_fc.png"
+                                alt="Logo de Argentina FC"
+                                width={67}
+                                height={67}
+                                priority
+                            />
+                        </div>
 
                         <div>
                             <h1>Argentina FC</h1>

@@ -1,5 +1,5 @@
-import Image from "next/image";
 import styles from "./page.module.css";
+import Link from "next/link";
 
 export default function Home() {
   return (
@@ -21,16 +21,7 @@ export default function Home() {
           </p>
         </div>
         <div className={styles.ctas}>
-          <a
-            className={styles.primary}
-            href="/login"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-
-            Entrar al juego →
-          </a>
-
+          <Link className={styles.primary} href="/login">Entrar al juego →</Link>
         </div>
       </main>
     </div>

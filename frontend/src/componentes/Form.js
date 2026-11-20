@@ -15,6 +15,7 @@ export default function Form({
     const [username, setUsername] = useState("");
     const [email, setEmail] = useState("");
     const [contrasena, setContrasena] = useState("");
+    const [mostrarToast, setMostrarToast] = useState(false);
 
     const handleClick = () => {
         if (register) {
@@ -42,14 +43,16 @@ export default function Form({
             const data = await response.json();
 
             if (response.ok) {
-                alert("¡Inicio de sesión correcto!");
+                setMostrarToast(true);
 
                 localStorage.setItem(
                     "usuario",
                     JSON.stringify(data.usuario)
                 );
-
-                router.push("/inicio");
+                setTimeout(() => {
+                    router.push("/inicio");
+                }, 1500);
+                
             } else {
                 alert(data.mensaje);
             }
@@ -63,6 +66,17 @@ export default function Form({
 
     return (
         <div className={styles.formulario}>
+
+            {mostrarToast && (
+                <div className={styles.toast}>
+                    <div className={styles.toastIcon}>✔️</div>
+                    <div className={styles.toastTexto}>
+                        <h4>¡Inicio de sesión exitoso!!</h4>
+                        <p>Bienvenido a Argentina FC</p>
+                    </div>
+                </div>
+            )}
+
             <h2 className={styles.titulo}>{title}</h2>
 
             {register && (
