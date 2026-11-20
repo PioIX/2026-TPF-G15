@@ -4,6 +4,7 @@ import { Suspense, useEffect, useRef, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { io } from "socket.io-client";
 import styles from "./partido.module.css";
+import { API } from "../page";
 
 export default function PartidoPage() {
   return (
@@ -74,7 +75,7 @@ function PartidoContenido() {
       try {
         // 1. Obtener la partida y los equipos.
         const respuesta = await fetch(
-          `http://localhost:4000/partidas/${idPartida}`,
+          `${API}/partidas/${idPartida}`,
           {
             method: "GET",
             credentials: "include",
@@ -100,7 +101,7 @@ function PartidoContenido() {
 
         // 2. Obtener los eventos que ya están guardados.
         const respuestaEventos = await fetch(
-          `http://localhost:4000/partidas/${idPartida}/eventos`,
+          `${API}/partidas/${idPartida}/eventos`,
           {
             method: "GET",
             credentials: "include",
@@ -248,7 +249,7 @@ function PartidoContenido() {
         }
 
         // 3. Conectarse a Socket.IO.
-        socket = io("http://localhost:4000", {
+        socket = io(`${API}`, {
           withCredentials: true,
         });
 
@@ -269,7 +270,7 @@ function PartidoContenido() {
           if (datos.estado === "En curso") {
             try {
               const respuestaSimulacion = await fetch(
-                `http://localhost:4000/partidas/${idPartida}/simular`,
+                `${API}/partidas/${idPartida}/simular`,
                 {
                   method: "POST",
                   credentials: "include",

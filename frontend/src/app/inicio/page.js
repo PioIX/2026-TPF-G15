@@ -7,6 +7,7 @@ import EstadisticasTemporada from "@/componentes/EstadisticasTemporada";
 import PanelAdmin from "@/componentes/PanelAdmin";
 import Link from "next/link";
 import Image from "next/image";
+import { API } from "../page";
 
 
 export default function InicioPage() {
@@ -19,7 +20,7 @@ export default function InicioPage() {
     useEffect(() => {
         async function comprobarAdmin() {
             try {
-                const respuesta = await fetch("http://localhost:4000/usuarios", {
+                const respuesta = await fetch(`${API}/usuarios`, {
                     credentials: "include"
                 });
 
@@ -38,7 +39,7 @@ export default function InicioPage() {
             console.log("Ejecutando obtenerEstadisticas...");
 
             try {
-                const respuesta = await fetch("http://localhost:4000/estadisticas", {
+                const respuesta = await fetch(`${API}/estadisticas`, {
                     credentials: "include"
                 });
 

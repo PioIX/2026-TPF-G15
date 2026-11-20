@@ -10,6 +10,7 @@ import styles from "./equipo.module.css";
 import ConfiguracionEquipo from "@/componentes/ConfiguracionEquipo";
 import Cancha from "@/componentes/Cancha";
 import BandejaPersonajes from "@/componentes/BandejaPersonajes";
+import { API } from "../page";
 
 function generarPosiciones(formacion, estrategia) {
   if (!formacion) return [];
@@ -128,7 +129,7 @@ const [personajeSeleccionado, setPersonajeSeleccionado] = useState(null);
         setErrorPersonajes(null);
 
         const response = await fetch(
-          `http://localhost:4000/modos/${id_modo}/personajes`
+          `${API}/modos/${id_modo}/personajes`
         );
 
         if (!response.ok) {
@@ -162,7 +163,7 @@ const [personajeSeleccionado, setPersonajeSeleccionado] = useState(null);
         setCargandoFormaciones(true);
         setErrorFormaciones(null);
 
-        const response = await fetch("http://localhost:4000/formaciones");
+        const response = await fetch(`${API}/formaciones`);
 
         if (!response.ok) {
           throw new Error("No se pudieron obtener las formaciones.");
@@ -280,7 +281,7 @@ const [personajeSeleccionado, setPersonajeSeleccionado] = useState(null);
 
     try {
       // Enviar el equipo al backend
-      const respuesta = await fetch("http://localhost:4000/equipos", {
+      const respuesta = await fetch(`${API}/equipos`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

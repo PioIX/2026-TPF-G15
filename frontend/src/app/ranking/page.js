@@ -4,8 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import styles from "./ranking.module.css";
 import Image from "next/image";
-
-const API = "http://localhost:4000";
+import { API } from "../page";
 
 function obtenerNombreJugador(usuario) {
     if (!usuario) return "Tu jugador";

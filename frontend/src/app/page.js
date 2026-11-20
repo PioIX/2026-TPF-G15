@@ -1,6 +1,8 @@
 import styles from "./page.module.css";
 import Link from "next/link";
 
+export const API = "http://10.1.5.135:4000";
+
 export default function Home() {
   return (
     <div className={styles.page}>

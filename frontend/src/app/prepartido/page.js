@@ -3,8 +3,7 @@
 import { useSearchParams, useRouter } from "next/navigation";
 import { Suspense, useState, useEffect, useRef } from "react";
 import styles from "./prepartido.module.css";
-
-const API = "http://localhost:4000";
+import { API } from "../page";
 
 export default function PrepartidoPage() {
   return (

@@ -4,6 +4,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import styles from "./form.module.css";
+import { API } from "@/app/page";
 
 export default function Form({
     title,
@@ -28,7 +29,7 @@ export default function Form({
 
     const handleLogin = async () => {
         try {
-            const response = await fetch("http://localhost:4000/login", {
+            const response = await fetch(`${API}/login`, {
                 method: "POST",
                 credentials: "include",
                 headers: {

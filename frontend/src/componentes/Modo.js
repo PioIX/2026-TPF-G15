@@ -1,6 +1,7 @@
 
 "use client";
 
+import { API } from "@/app/page";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
@@ -15,7 +16,7 @@ export default function Modo({ id_modo, titulo, subtitulo, descripcion }) {
 
         try {
             const respuesta = await fetch(
-                `http://localhost:4000/torneo/pendiente/${id_modo}`,
+                `${API}/torneo/pendiente/${id_modo}`,
                 {
                     credentials: "include"
                 }
