@@ -173,23 +173,34 @@ export default function RankingPage() {
 
     return (
         <main className={styles.pagina}>
-            <nav
-                className={styles.navbar}
-                aria-label="Navegación principal"
-            >
-                <Link href="/inicio" className={styles.enlaceNav}>
-                    Inicio
-                </Link>
+            <header className={styles.encabezadoSuperior}>
+                <div className={styles.barraSuperior}>
+                    <div className={styles.marca}>
+                        <div className={styles.logo}>AFC</div>
 
-                <Link
-                    href="/ranking" className={`${styles.enlaceNav} ${styles.activo}`}>
-                    Ranking
-                </Link>
+                        <div>
+                            <h1>Argentina FC</h1>
+                            <p>Armá tu equipo</p>
+                        </div>
+                    </div>
 
-                <Link href="/perfil" className={styles.enlaceNav}>
-                    Perfil
-                </Link>
-            </nav>
+                    <div className={styles.conexion}>Conectado</div>
+                </div>
+
+                <nav className={styles.navbar} aria-label="Navegación principal">
+                    <Link href="/inicio" className={styles.enlaceNav}>
+                        Inicio
+                    </Link>
+
+                    <Link href="/ranking" className={`${styles.enlaceNav} ${styles.activo}`}>
+                        Ranking
+                    </Link>
+
+                    <Link href="/perfil" className={styles.enlaceNav}>
+                        Perfil
+                    </Link>
+                </nav>
+            </header>
 
             <section className={styles.contenido}>
 
