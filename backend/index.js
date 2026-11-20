@@ -2169,6 +2169,17 @@ app.get("/partidas/:id_partida", async (req, res) => {
                 habilidad: personaje.habilidad
             }));
 
+        // Calcular las estadísticas de ambos equipos.
+        const estadisticasLocales = calcularEstadisticasEquipo(
+            jugadoresLocales,
+            partida.estrategia_local
+        );
+
+        const estadisticasVisitantes = calcularEstadisticasEquipo(
+            jugadoresVisitantes,
+            partida.estrategia_visitante
+        );
+
         res.json({
             id_partida: partida.id_partida,
             tipo: partida.tipo,
@@ -2184,7 +2195,8 @@ app.get("/partidas/:id_partida", async (req, res) => {
                 nombre: partida.nombre_local,
                 formacion: partida.formacion_local,
                 estrategia: partida.estrategia_local,
-                jugadores: jugadoresLocales
+                jugadores: jugadoresLocales,
+                estadisticas: estadisticasLocales
             },
 
             equipo_visitante: {
@@ -2192,7 +2204,8 @@ app.get("/partidas/:id_partida", async (req, res) => {
                 nombre: partida.nombre_visitante,
                 formacion: partida.formacion_visitante,
                 estrategia: partida.estrategia_visitante,
-                jugadores: jugadoresVisitantes
+                jugadores: jugadoresVisitantes,
+                estadisticas: estadisticasVisitantes
             }
         });
 

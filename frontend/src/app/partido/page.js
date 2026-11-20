@@ -525,8 +525,8 @@ function PartidoContenido() {
             {instanciaPartida
               ? instanciaPartida.toUpperCase()
               : tipoPartida === 1
-              ? "MULTIJUGADOR"
-              : "PARTIDO"}
+                ? "MULTIJUGADOR"
+                : "PARTIDO"}
           </p>
 
           <div className={styles.resultado}>
@@ -539,10 +539,10 @@ function PartidoContenido() {
             {fase === "final"
               ? "FINAL DEL PARTIDO"
               : fase === "penales" || fase === "mataMata"
-              ? fase === "mataMata"
-                ? "DEFINICIÓN · MATA-MATA"
-                : "DEFINICIÓN POR PENALES"
-              : `${minuto}'`}
+                ? fase === "mataMata"
+                  ? "DEFINICIÓN · MATA-MATA"
+                  : "DEFINICIÓN POR PENALES"
+                : `${minuto}'`}
           </p>
 
           {huboTanda && (
@@ -562,70 +562,69 @@ function PartidoContenido() {
       {(fase === "penales" ||
         fase === "mataMata" ||
         (fase === "final" && huboTanda)) && (
-        <section className={styles.panelDefinicionPenales}>
-          <h2>
-            {fase === "mataMata"
-              ? "¡Definición por mata-mata!"
-              : "Definición por penales"}
-          </h2>
+          <section className={styles.panelDefinicionPenales}>
+            <h2>
+              {fase === "mataMata"
+                ? "¡Definición por mata-mata!"
+                : "Definición por penales"}
+            </h2>
 
-          <p className={styles.resultadoTanda}>
-            {golesPenalesLocal} - {golesPenalesVisitante}
-          </p>
+            <p className={styles.resultadoTanda}>
+              {golesPenalesLocal} - {golesPenalesVisitante}
+            </p>
 
-          {[
-            {
-              nombre: equipoLocal.nombre,
-              penales: penalesLocal,
-            },
-            {
-              nombre: equipoVisitante.nombre,
-              penales: penalesVisitante,
-            },
-          ].map((equipo, indice) => {
-            const cantidadCasilleros = Math.max(
-              5,
-              penalesLocal.length,
-              penalesVisitante.length
-            );
+            {[
+              {
+                nombre: equipoLocal.nombre,
+                penales: penalesLocal,
+              },
+              {
+                nombre: equipoVisitante.nombre,
+                penales: penalesVisitante,
+              },
+            ].map((equipo, indice) => {
+              const cantidadCasilleros = Math.max(
+                5,
+                penalesLocal.length,
+                penalesVisitante.length
+              );
 
-            return (
-              <div className={styles.filaTandaPenales} key={indice}>
-                <span className={styles.nombreTandaPenales}>
-                  {equipo.nombre}
-                </span>
+              return (
+                <div className={styles.filaTandaPenales} key={indice}>
+                  <span className={styles.nombreTandaPenales}>
+                    {equipo.nombre}
+                  </span>
 
-                <div className={styles.casillerosTanda}>
-                  {Array.from({
-                    length: cantidadCasilleros,
-                  }).map((_, i) => {
-                    const resultado = equipo.penales[i];
+                  <div className={styles.casillerosTanda}>
+                    {Array.from({
+                      length: cantidadCasilleros,
+                    }).map((_, i) => {
+                      const resultado = equipo.penales[i];
 
-                    return (
-                      <div
-                        key={i}
-                        className={`${styles.casilleroTanda} ${
-                          resultado === true
-                            ? styles.penalConvertido
+                      return (
+                        <div
+                          key={i}
+                          className={`${styles.casilleroTanda} ${resultado === true
+                              ? styles.penalConvertido
+                              : resultado === false
+                                ? styles.penalFallado
+                                : ""
+                            }`}
+                        >
+                          {resultado === true
+                            ? "⚽"
                             : resultado === false
-                            ? styles.penalFallado
-                            : ""
-                        }`}
-                      >
-                        {resultado === true
-                          ? "⚽"
-                          : resultado === false
-                          ? "❌"
-                          : "◯"}
-                      </div>
-                    );
-                  })}
+                              ? "❌"
+                              : "◯"}
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
-            );
-          })}
-        </section>
-      )}
+              );
+            })}
+          </section>
+        )}
 
       <section className={styles.contenido}>
         <div className={styles.alineaciones}>
@@ -657,15 +656,15 @@ function PartidoContenido() {
                               gol.tipo === "penal"
                                 ? "Gol de penal"
                                 : gol.tipo === "tiroLibre"
-                                ? "Gol de tiro libre"
-                                : "Gol"
+                                  ? "Gol de tiro libre"
+                                  : "Gol"
                             }
                           >
                             {gol.tipo === "penal"
                               ? "⚽🎯"
                               : gol.tipo === "tiroLibre"
-                              ? "⚽🥅"
-                              : "⚽"}
+                                ? "⚽🥅"
+                                : "⚽"}
                           </span>
                         )
                       )}
@@ -678,7 +677,23 @@ function PartidoContenido() {
                         {jugador.posicion}
                       </span>
                     </div>
+
                   ))}
+                  <div className={styles.estadisticasEquipo}>
+                    <div className={styles.estadistica}>
+                      <span>Ataque</span>
+                      <strong>
+                        {equipo.estadisticas?.poderAtaque ?? 0}
+                      </strong>
+                    </div>
+
+                    <div className={styles.estadistica}>
+                      <span>Defensa</span>
+                      <strong>
+                        {equipo.estadisticas?.poderDefensa ?? 0}
+                      </strong>
+                    </div>
+                  </div>
                 </div>
               );
             })}
@@ -702,9 +717,8 @@ function PartidoContenido() {
               eventos.map((evento, indice) => (
                 <article
                   key={evento.id_evento || `${evento.minuto}-${indice}`}
-                  className={`${styles.evento} ${
-                    evento.tipo === "gol" ? styles.eventoGol : ""
-                  }`}
+                  className={`${styles.evento} ${evento.tipo === "gol" ? styles.eventoGol : ""
+                    }`}
                 >
                   <span className={styles.minutoEvento}>{evento.minuto}'</span>
 
@@ -713,17 +727,17 @@ function PartidoContenido() {
                       ? evento.tipoGol === "penal"
                         ? "🎯"
                         : evento.tipoGol === "tiroLibre"
-                        ? "🥅"
-                        : "⚽"
+                          ? "🥅"
+                          : "⚽"
                       : evento.tipo === "tarjeta"
-                      ? "🟨"
-                      : evento.tipo === "corner"
-                      ? "🚩"
-                      : evento.tipo === "tiroLibre"
-                      ? "🥅"
-                      : evento.tipo === "penal"
-                      ? "🎯"
-                      : "•"}
+                        ? "🟨"
+                        : evento.tipo === "corner"
+                          ? "🚩"
+                          : evento.tipo === "tiroLibre"
+                            ? "🥅"
+                            : evento.tipo === "penal"
+                              ? "🎯"
+                              : "•"}
                   </span>
 
                   <div className={styles.descripcionEvento}>

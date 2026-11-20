@@ -346,10 +346,22 @@ function EquipoContenido() {
           {id_modo === "1"
             ? "Próceres argentinos"
             : id_modo === "2"
-            ? "Profes del Pío IX"
-            : "Sin modo seleccionado"}{" "}
+              ? "Profes del Pío IX"
+              : "Sin modo seleccionado"}{" "}
           - Elegí una posición en la cancha y después asignale un personaje.
         </p>
+        <div className={styles.avisoPosiciones}>
+          <span className={styles.iconoAviso}>ⓘ</span>
+
+          <div>
+            <strong>Posiciones recomendadas</strong>
+            <p>
+              Cada personaje tiene una posición natural en la que aprovecha mejor
+              sus habilidades. Podés ubicarlo en cualquier otra posición, pero
+              su rendimiento podría disminuir.
+            </p>
+          </div>
+        </div>
 
         <div className={styles.columnas}>
           <section className={styles.panelEquipo}>
