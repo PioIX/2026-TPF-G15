@@ -1415,48 +1415,6 @@ async function completarSala(idSala, idUsuario, idEquipo, tipoEsperado) {
 }
 
 
-// Unirse a una sala pública
-app.post("/salas/:id/unirse", async (req, res) => {
-    try {
-        if (!req.session.usuario) {
-            return res.status(401).json({
-                mensaje: "Tenés que iniciar sesión."
-            });
-        }
-
-        const idSala = Number(req.params.id);
-        const idEquipo = Number(req.body.id_equipo);
-        const idUsuario = Number(req.session.usuario.id_usuario);
-
-        if (
-            !Number.isInteger(idSala) || idSala <= 0 ||
-            !Number.isInteger(idEquipo) || idEquipo <= 0
-        ) {
-            return res.status(400).json({
-                mensaje: "Los datos para unirse a la sala no son válidos."
-            });
-        }
-
-        const resultado = await completarSala(
-            idSala,
-            idUsuario,
-            idEquipo,
-            "publica"
-        );
-
-        return res.json({
-            mensaje: "Te uniste a la sala correctamente.",
-            ...resultado
-        });
-
-    } catch (error) {
-        console.error("Error al unirse a la sala pública:", error);
-
-        return res.status(error.status || 500).json({
-            mensaje: error.message || "No se pudo ingresar a la sala."
-        });
-    }
-});
 // Unirse a una sala privada mediante su código
 app.post("/salas/privadas/unirse", async (req, res) => {
     try {
@@ -1522,6 +1480,54 @@ app.post("/salas/privadas/unirse", async (req, res) => {
         });
     }
 });
+
+// Unirse a una sala pública
+app.post("/salas/:id/unirse", async (req, res) => {
+    console.log("=== LLEGÓ A LA RUTA DE UNIRSE A SALA PRIVADA ===");
+
+    try {
+        console.log("Body recibido:", req.body);
+
+        if (!req.session.usuario) {
+            return res.status(401).json({
+                mensaje: "Tenés que iniciar sesión."
+            });
+        }
+
+        const idSala = Number(req.params.id);
+        const idEquipo = Number(req.body.id_equipo);
+        const idUsuario = Number(req.session.usuario.id_usuario);
+
+        if (
+            !Number.isInteger(idSala) || idSala <= 0 ||
+            !Number.isInteger(idEquipo) || idEquipo <= 0
+        ) {
+            return res.status(400).json({
+                mensaje: "Los datos para unirse a la sala no son válidos."
+            });
+        }
+
+        const resultado = await completarSala(
+            idSala,
+            idUsuario,
+            idEquipo,
+            "publica"
+        );
+
+        return res.json({
+            mensaje: "Te uniste a la sala correctamente.",
+            ...resultado
+        });
+
+    } catch (error) {
+        console.error("Error al unirse a la sala pública:", error);
+
+        return res.status(error.status || 500).json({
+            mensaje: error.message || "No se pudo ingresar a la sala."
+        });
+    }
+});
+
 
 // Cancelar una sala propia que todavía está esperando
 app.delete("/salas/:id", async (req, res) => {

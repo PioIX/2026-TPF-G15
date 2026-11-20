@@ -32,60 +32,71 @@ export default function InicioPage() {
         comprobarAdmin();
     }, []);
 
-useEffect(() => {
-    async function obtenerEstadisticas() {
-        console.log("Ejecutando obtenerEstadisticas...");
+    useEffect(() => {
+        async function obtenerEstadisticas() {
+            console.log("Ejecutando obtenerEstadisticas...");
 
-        try {
-            const respuesta = await fetch("http://localhost:4000/estadisticas", {
-                credentials: "include"
-            });
+            try {
+                const respuesta = await fetch("http://localhost:4000/estadisticas", {
+                    credentials: "include"
+                });
 
-            // Si no hay sesión iniciada, simplemente no mostramos estadísticas.
-            if (respuesta.status === 401) {
-                setEstadisticas(null);
-                return;
+                // Si no hay sesión iniciada, simplemente no mostramos estadísticas.
+                if (respuesta.status === 401) {
+                    setEstadisticas(null);
+                    return;
+                }
+
+                if (!respuesta.ok) {
+                    throw new Error(
+                        `El servidor respondió con el estado ${respuesta.status}`
+                    );
+                }
+
+                const datos = await respuesta.json();
+
+                setEstadisticas(datos);
+
+            } catch (error) {
+                console.error("Error al obtener las estadísticas:", error);
+            } finally {
+                setCargandoEstadisticas(false);
             }
-
-            if (!respuesta.ok) {
-                throw new Error(
-                    `El servidor respondió con el estado ${respuesta.status}`
-                );
-            }
-
-            const datos = await respuesta.json();
-
-            setEstadisticas(datos);
-
-        } catch (error) {
-            console.error("Error al obtener las estadísticas:", error);
-        } finally {
-            setCargandoEstadisticas(false);
         }
-    }
 
-    obtenerEstadisticas();
-}, []);
+        obtenerEstadisticas();
+    }, []);
 
     return (
         <main className={styles.inicio}>
-            <nav
-                className={styles.navbar}
-                aria-label="Navegación principal"
-            >
-                <Link href="/inicio" className={`${styles.enlaceNav} ${styles.activo}`}>
-                    Inicio
-                </Link>
+            <header className={styles["inicio-encabezado-superior"]}>
+                <div className={styles["inicio-barra-superior"]}>
+                    <div className={styles.marca}>
+                        <div className={styles.logo}>AFC</div>
 
-                <Link
-                    href="/ranking" className={styles.enlaceNav}>
-                    Ranking
-                </Link>
+                        <div>
+                            <h1>Argentina FC</h1>
+                            <p>Armá tu equipo</p>
+                        </div>
+                    </div>
 
-                <Link href="/perfil" className={styles.enlaceNav}>
-                    Perfil
-                </Link>
-            </nav>
+                    <div className={styles.estado}>Conectado</div>
+                </div>
+
+                <nav className={styles.navbar} aria-label="Navegación principal">
+                    <Link href="/inicio" className={`${styles.enlaceNav} ${styles.activo}`}>
+                        Inicio
+                    </Link>
+
+                    <Link href="/ranking" className={styles.enlaceNav}>
+                        Ranking
+                    </Link>
+
+                    <Link href="/perfil" className={styles.enlaceNav}>
+                        Perfil
+                    </Link>
+                </nav>
+            </header>
             <header className={styles["inicio-encabezado"]}>
                 <br />
 
