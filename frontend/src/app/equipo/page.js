@@ -4,6 +4,7 @@ import { useState, useEffect, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 
+
 import styles from "./equipo.module.css";
 
 import ConfiguracionEquipo from "@/componentes/ConfiguracionEquipo";
@@ -90,8 +91,8 @@ function EquipoContenido() {
   const [estrategia, setEstrategia] = useState("Equilibrada");
   const [tipoPartida, setTipoPartida] = useState("individual");
 
-  const [equipo, setEquipo] = useState({});
-  const [ordenSeleccionado, setOrdenSeleccionado] = useState(null);
+const [equipo, setEquipo] = useState({});
+const [personajeSeleccionado, setPersonajeSeleccionado] = useState(null);
 
   const [personajes, setPersonajes] = useState([]);
   const [cargandoPersonajes, setCargandoPersonajes] = useState(true);
@@ -205,39 +206,47 @@ function EquipoContenido() {
     });
 
     setEquipo({});
-    setOrdenSeleccionado(null);
+  setPersonajeSeleccionado(null);
     setIdFormacion(nuevoId);
   }
 
   // Asignar un personaje a la posición seleccionada.
   function seleccionarPersonaje(personaje) {
-    if (ordenSeleccionado === null) {
-      alert("Primero seleccioná una posición en la cancha.");
-      return;
+    setPersonajeSeleccionado((actual) =>{
+      if (actual?.id_personaje === personaje.id_personaje) { //compara el personaje ya seleccionado con el que se quiere seleccionar
+        return null; // Deselecciona si es el mismo personaje
+      }
+      return personaje; // Selecciona el nuevo personaje
+    });
+  }
+  function asignarPersonaje(posicion) {
+    if (!personajeSeleccionado) { //comprueba si no hay un personaje seleccionado antes de asignarlo a una posición
+      alert("Primero seleccioná un personaje de la bandeja.");
+      return; 
     }
 
     const puesto = posicionesActuales.find(
-      (posicion) => posicion.orden === ordenSeleccionado
-    );
+      (p) => p.orden === posicion
+    ); 
 
-    if (!puesto) return;
+    if(!puesto) return;
 
-    const jugadorAnterior = equipo[ordenSeleccionado]?.personaje;
+    const jugadorAnterior = equipo[posicion]?.personaje;
 
     setEquipo((actual) => ({
       ...actual,
-      [ordenSeleccionado]: {
+      [posicion]: {
         equipo_id: null,
-        personaje_id: personaje.id_personaje,
+        personaje_id: personajeSeleccionado.id_personaje,
         posicion: puesto.posicion,
         orden: puesto.orden,
-        personaje: personaje,
+        personaje: personajeSeleccionado,
       },
-    }));
+   }));
 
-    setPersonajes((actuales) => {
+  setPersonajes((actuales) => {
       const disponibles = actuales.filter(
-        (p) => p.id_personaje !== personaje.id_personaje
+        (p) => p.id_personaje !== personajeSeleccionado.id_personaje
       );
 
       if (jugadorAnterior) {
@@ -247,7 +256,7 @@ function EquipoContenido() {
       return disponibles;
     });
 
-    setOrdenSeleccionado(null);
+    setPersonajeSeleccionado(null);
   }
 
   // Confirmar y continuar al prepartido.
@@ -348,7 +357,7 @@ function EquipoContenido() {
             : id_modo === "2"
               ? "Profes del Pío IX"
               : "Sin modo seleccionado"}{" "}
-          - Elegí una posición en la cancha y después asignale un personaje.
+          - Elegí un personaje y luego asignalo a una posición en la cancha.
         </p>
         <div className={styles.avisoPosiciones}>
           <span className={styles.iconoAviso}>ⓘ</span>
@@ -384,8 +393,7 @@ function EquipoContenido() {
             <Cancha
               posiciones={posicionesActuales}
               equipo={equipo}
-              ordenSeleccionado={ordenSeleccionado}
-              onSeleccionarPosicion={setOrdenSeleccionado}
+              onSeleccionarPosicion={asignarPersonaje}
             />
 
             <div className={styles.confirmacion}>
@@ -405,6 +413,7 @@ function EquipoContenido() {
           <BandejaPersonajes
             personajes={personajes}
             onSeleccionarPersonaje={seleccionarPersonaje}
+            personajeSeleccionado={personajeSeleccionado}
             cargando={cargandoPersonajes}
             error={errorPersonajes}
           />

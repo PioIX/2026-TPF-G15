@@ -5,6 +5,7 @@ import styles from "@/app/equipo/equipo.module.css";
 export default function BandejaPersonajes({
     personajes,
     onSeleccionarPersonaje,
+    personajeSeleccionado,
     cargando,
     error
 }) {
@@ -12,7 +13,9 @@ export default function BandejaPersonajes({
         <div className={styles.bandeja}>
             <h2>Bandeja de personajes</h2>
 
-            <p>Seleccioná un personaje para asignarlo a la posición elegida.</p>
+            <p>
+                Seleccioná un personaje y después elegí dónde ubicarlo en la cancha.
+            </p>
 
             {cargando ? (
                 <p>Cargando personajes...</p>
@@ -22,13 +25,29 @@ export default function BandejaPersonajes({
                 <p>No hay personajes disponibles.</p>
             ) : (
                 <div className={styles.listaPersonajes}>
-                    {personajes.map((personaje) => (
-                        <Personaje
-                            key={personaje.id_personaje}
-                            personaje={personaje}
-                            onClick={() => onSeleccionarPersonaje(personaje)}
-                        />
-                    ))}
+                    {personajes.map((personaje) => {
+                        const seleccionado =
+                            personajeSeleccionado?.id_personaje ===
+                            personaje.id_personaje;
+
+                        return (
+                            <div
+                                key={personaje.id_personaje}
+                                className={
+                                    seleccionado
+                                        ? styles.personajeSeleccionado
+                                        : styles.personajeDisponible
+                                }
+                            >
+                                <Personaje
+                                    personaje={personaje}
+                                    onClick={() =>
+                                        onSeleccionarPersonaje(personaje)
+                                    }
+                                />
+                            </div>
+                        );
+                    })}
                 </div>
             )}
         </div>

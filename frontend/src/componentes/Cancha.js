@@ -5,7 +5,6 @@ import styles from "@/app/equipo/equipo.module.css";
 export default function Cancha({
     posiciones,
     equipo,
-    ordenSeleccionado,
     onSeleccionarPosicion
 }) {
     return (
@@ -32,7 +31,6 @@ export default function Cancha({
                             posicion={puesto.posicion}
                             personaje={personaje}
                             ocupado={ocupado}
-                            seleccionada={ordenSeleccionado === puesto.orden}
                             onClick={() => onSeleccionarPosicion(puesto.orden)}
                         />
                     </div>
