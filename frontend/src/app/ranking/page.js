@@ -192,9 +192,6 @@ export default function RankingPage() {
             </nav>
 
             <section className={styles.contenido}>
-                <div className={styles.avisoDesafio}>
-                    Desafío seleccionado: {desafio}.
-                </div>
 
                 <div className={styles.etiqueta}>
                     CLASIFICACIÓN
