@@ -353,3 +353,30 @@
         font-size: 21px;
     }
 }
+
+.estadisticasEquipo {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-top: 18px;
+}
+
+.estadistica {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 15px;
+    background: #0b1e2e;
+    border: 1px solid #203b52;
+    border-radius: 10px;
+}
+
+.estadistica span {
+    color: #b3c1d0;
+    font-size: 14px;
+}
+
+.estadistica strong {
+    color: #7bd8ee;
+    font-size: 18px;
+}

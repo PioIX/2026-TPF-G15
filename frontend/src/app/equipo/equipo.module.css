@@ -376,3 +376,43 @@
         padding: 18px 12px;
     }
 }
+
+
+.avisoPosiciones {
+    display: flex;
+    align-items: flex-start;
+    gap: 13px;
+    margin: 20px 0;
+    padding: 15px 18px;
+    background: #10283c;
+    border: 1px solid #28516a;
+    border-radius: 12px;
+}
+
+.iconoAviso {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: #163d50;
+    color: #7bd8ee;
+    font-size: 18px;
+    font-weight: 800;
+}
+
+.avisoPosiciones strong {
+    display: block;
+    margin-bottom: 5px;
+    color: #7bd8ee;
+    font-size: 14px;
+}
+
+.avisoPosiciones p {
+    margin: 0;
+    color: #b3c1d0;
+    font-size: 13px;
+    line-height: 1.5;
+}
